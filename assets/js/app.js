@@ -82,6 +82,18 @@ window.initPlaybook = function () {
     </div>
     <div class="cat-items" id="catItems"></div>`;
 
+  /* mobile: horizontal category chips at the top of the content + backdrop for the drawer */
+  $('#pbMain').insertAdjacentHTML('afterbegin', `<div class="cat-strip" role="tablist">${CATS.map((c) => `<button class="cat-chip" data-cat="${c.id}">${c.icon} ${c.label}</button>`).join('')}</div>`);
+  $('#view-playbook').insertAdjacentHTML('beforeend', '<div class="sb-backdrop" id="sbBackdrop"></div>');
+  const closeDrawer = () => { $('#sidebar').classList.remove('open'); document.body.classList.remove('drawer-open'); };
+  $('#sbBackdrop').addEventListener('click', closeDrawer);
+  $('.cat-strip').addEventListener('click', (e) => {
+    const chip = e.target.closest('.cat-chip');
+    if (!chip) return;
+    if (search.value) { search.value = ''; applySearch(); }
+    showCat(chip.dataset.cat);
+  });
+
   function renderItems(q) {
     const cats = q ? CATS.filter((c) => !c.static) : CATS.filter((c) => c.id === active);
     let html = '';
@@ -99,6 +111,7 @@ window.initPlaybook = function () {
     active = id;
     try { localStorage.setItem('fx-pbcat', id); } catch (e) {}
     $$('.cat-tab').forEach((b) => b.classList.toggle('on', b.dataset.cat === id));
+    $$('.cat-chip').forEach((b) => { b.classList.toggle('on', b.dataset.cat === id); if (b.dataset.cat === id) b.parentNode.scrollLeft = b.offsetLeft - 16; });
     if (!search.value.trim()) $$('#pbMain .section').forEach((s) => s.classList.toggle('hidden', s.dataset.cat !== id));
     renderItems(search.value.trim().toLowerCase());
     if (!keepScroll) window.scrollTo({ top: 0, behavior: 'instant' });
@@ -112,10 +125,10 @@ window.initPlaybook = function () {
       const el = document.getElementById(a.dataset.nav);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       history.replaceState(null, '', '#' + a.dataset.nav);
-      $('#sidebar').classList.remove('open');
+      closeDrawer();
     }
   });
-  $('#menuBtn').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
+  $('#menuBtn').addEventListener('click', () => { const open = $('#sidebar').classList.toggle('open'); document.body.classList.toggle('drawer-open', open); });
 
   /* reveal an item by id (used for deep links like #hammer) */
   window.pbReveal = function (id) {
