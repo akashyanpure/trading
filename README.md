@@ -2,18 +2,18 @@
 
 Personal forex reference + live trading-session dashboard. Static site, no build step, no dependencies, hosted on GitHub Pages.
 
-## Pages
+## Layout
+One page with two tabs (keys **1** / **2**): **Dashboard** and **Playbook**. A live candlestick chart scrolls in the background (toggle in ⚙ Settings; respects reduced-motion).
 
-**`index.html` — Live Dashboard** (one screen, big numbers)
-- **Position size calculator**: balance, risk % or £/$ amount, pair, stop (pips) → lot size, exact risk, pip value, SL/1R/2R/3R levels (prices if entry given). Live FX conversion via open.er-api.com.
-- **Session clock**: Asia (Tokyo), London, New York + London×NY overlap with countdowns to next open/close. DST handled automatically; display timezone configurable.
-- **News guard**: high-impact events (ForexFactory weekly feed, fetched by the GitHub Action) with a countdown banner that turns **red** inside the no-trade window, plus TradingView's economic calendar widget (high impact only).
-- **Pre-trade checklist**: your own rules + live auto-checks (news clear, risk ≤ limit). “Take trade” stays locked until everything is ticked.
-- **Daily risk guard**: trades taken, R today, loss streak; warning after N consecutive losses; hard “STOP TRADING” lock at max daily loss (R) or max trades.
-- **Quick links**: editable (prop dashboard, ForexFactory, news…).
+**Dashboard** (one screen, big numbers)
+- **News banner** in plain English: ✅ *Safe to trade*, ⚠️ *Big news soon* (countdown to the no-trade zone), ⛔ *DON'T TRADE* (±15 min around high-impact releases). Data: ForexFactory weekly feed fetched by the GitHub Action.
+- **Session clock**: Asia (Tokyo), London, New York + London×NY overlap with countdowns. DST automatic; display timezone configurable.
+- **Trades today**: counter with + / − (default max **4**/day), locks at the limit, resets daily.
+- **Pre-trade checklist**: your rules + live auto-checks (news, risk ≤ limit). “Take trade” stays locked until all are ticked; taking a trade adds +1 to the counter.
+- **Position size** overlay (button or **P**): lots, exact risk, pip value, SL / 1R / 2R / 3R.
+- **High-impact news**: TradingView economic calendar widget. Editable quick links in the header.
 
-**`playbook.html` — Reference**
-Top 20 strategies (typical win-rate ranges, R:R, rules), 22 candlestick patterns, 13 chart patterns, market structure/SMC concepts, indicator cheat sheet, risk rules, glossary — every item with an annotated candlestick chart (SVG, generated from synthetic data).
+**Playbook**: top 20 strategies, 22 candlestick patterns, 13 chart patterns, market structure/SMC concepts, indicators, risk rules, glossary — each with an annotated candlestick chart. Search with **/**.
 
 ## Data & privacy
 No login and no server. Settings, checklist rules and the daily log live in your browser's `localStorage`. Use **⚙ Settings → Export/Import** to back up or move to another device.

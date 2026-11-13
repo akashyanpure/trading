@@ -3,20 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Trading Dashboard</title>
-  <meta name="description" content="Live forex session dashboard: position sizing, session clock, news guard, checklist and daily risk guard." />
+  <title>Trading Desk</title>
+  <meta name="description" content="Live forex session dashboard and trading playbook." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f172a'/%3E%3Cline x1='10' y1='5' x2='10' y2='27' stroke='%2322c55e' stroke-width='2'/%3E%3Crect x='7' y='10' width='6' height='11' fill='%2322c55e'/%3E%3Cline x1='22' y1='4' x2='22' y2='24' stroke='%23ef4444' stroke-width='2'/%3E%3Crect x='19' y='8' width='6' height='10' fill='%23ef4444'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="assets/css/style.css" />
   <link rel="stylesheet" href="assets/css/dash.css" />
   <script>
-    try { const t = localStorage.getItem('fx-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    try {
+      const t = localStorage.getItem('fx-theme'); if (t) document.documentElement.dataset.theme = t;
+      const h = location.hash.slice(1), last = localStorage.getItem('fx-tab');
+      document.documentElement.dataset.tab = h && h !== 'dashboard' ? 'playbook' : h === 'dashboard' ? 'dashboard' : (last || 'dashboard');
+    } catch (e) { document.documentElement.dataset.tab = 'dashboard'; }
   </script>
 </head>
-<body class="dash">
-  <header class="topbar">
-    <a href="./" class="brand"><span class="logo">▮▮</span> <span class="txt">Trading Desk</span></a>
-    <nav class="pages"><a href="./" class="on">⚡ Dashboard</a><a href="playbook.html">📘 Playbook</a></nav>
-    <nav class="quick" id="quickLinks" aria-label="Quick links"></nav>
+<body>
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+
+  <header class="topbar" id="topbar">
+    <button class="icon-btn menu-btn pb-only" id="menuBtn" aria-label="Toggle navigation">☰</button>
+    <a href="#dashboard" class="brand"><span class="logo">▮▮</span> <span class="txt">Trading Desk</span></a>
+
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <span class="tab-glider" aria-hidden="true"></span>
+      <button role="tab" class="tab" data-tab="dashboard"><span class="ti">⚡</span> Dashboard <kbd>1</kbd></button>
+      <button role="tab" class="tab" data-tab="playbook"><span class="ti">📘</span> Playbook <kbd>2</kbd></button>
+    </nav>
+
+    <nav class="quick dash-only" id="quickLinks" aria-label="Quick links"></nav>
+    <div class="search-wrap pb-only">
+      <input id="search" type="search" placeholder="Search strategies, patterns, indicators…  ( / )" autocomplete="off" />
+    </div>
+
     <div class="top-right">
       <div class="tz-clock"><span id="clockTime">--:--:--</span><span id="clockTz" class="small"></span></div>
       <button class="icon-btn" id="themeBtn" title="Toggle light/dark">◐</button>
@@ -24,20 +41,148 @@
     </div>
   </header>
 
-  <!-- NEWS BANNER -->
-  <div class="news-banner" id="newsBanner" data-state="unknown">
-    <span class="nb-icon" id="nbIcon">📰</span>
-    <span class="nb-main" id="nbMain">Loading economic calendar…</span>
-    <span class="nb-count" id="nbCount"></span>
-    <span class="nb-next small" id="nbNext"></span>
+  <!-- ===================== DASHBOARD VIEW ===================== -->
+  <div class="view view-dash" id="view-dashboard">
+    <div class="news-banner" id="newsBanner" data-state="unknown" title="High-impact news (CPI, NFP, rate decisions…) causes spikes, wide spreads and slippage. Avoid trading around it.">
+      <span class="nb-icon" id="nbIcon">📰</span>
+      <span class="nb-main" id="nbMain">Loading economic calendar…</span>
+      <span class="nb-count" id="nbCount"></span>
+      <span class="nb-next" id="nbNext"></span>
+    </div>
+
+    <div class="sessions" id="sessions"></div>
+
+    <main class="dash-grid">
+      <section class="panel today">
+        <div class="panel-h"><h2>Trades Today</h2><span class="small" id="dayLabel"></span></div>
+        <div class="counter" id="counter">
+          <button class="cnt-btn" id="cMinus" aria-label="Remove a trade">−</button>
+          <div class="cnt-val"><span id="cCount">0</span><span class="cnt-max">/ <span id="cMax">4</span></span></div>
+          <button class="cnt-btn" id="cPlus" aria-label="Add a trade">+</button>
+        </div>
+        <div class="cnt-dots" id="cDots"></div>
+        <div class="cnt-msg" id="cMsg"></div>
+
+        <button class="calc-launch" id="calcOpen">
+          <span class="cl-ic">🧮</span>
+          <span class="cl-txt"><b>Position size</b><span id="calcSummary" class="small"></span></span>
+          <kbd>P</kbd>
+        </button>
+      </section>
+
+      <section class="panel mid">
+        <div class="panel-h"><h2>Pre-Trade Checklist</h2><span class="small" id="ckCount"></span></div>
+        <ul class="ck" id="ckList"></ul>
+        <button class="take-btn" id="takeBtn" disabled>🔒 Take trade</button>
+      </section>
+
+      <section class="panel cal">
+        <div class="panel-h"><h2>High-Impact News</h2><a class="small" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener">ForexFactory ↗</a></div>
+        <div class="tv-wrap" id="tvWrap"></div>
+      </section>
+    </main>
   </div>
 
-  <!-- SESSIONS -->
-  <div class="sessions" id="sessions"></div>
+  <!-- ===================== PLAYBOOK VIEW ===================== -->
+  <div class="view view-playbook" id="view-playbook">
+    <div class="layout">
+      <nav class="sidebar" id="sidebar" aria-label="Sections"></nav>
+      <main id="pbMain">
+        <div id="dynamic"><div class="empty">Loading playbook…</div></div>
 
-  <main class="dash-grid">
-    <!-- POSITION SIZE -->
-    <section class="panel calc" aria-label="Position size calculator">
+        <section class="section" id="risk" data-static>
+          <h2><span class="sec-icon">🛡️</span> Risk Management &amp; Rules</h2>
+          <p class="intro">Strategy decides <i>when</i> to trade. Risk management decides whether you are still trading next year.</p>
+          <div class="grid two">
+            <div class="card" data-search="risk rules one percent daily loss drawdown">
+              <h3>Hard Rules</h3>
+              <ul class="bullets">
+                <li>Risk <b>0.5–1%</b> of the account per trade. Never more than 2%.</li>
+                <li>Maximum <b>4 trades</b> per day. Max daily loss <b>3%</b> → stop for the day.</li>
+                <li>Stop after <b>2–3 consecutive losses</b>; review instead of revenge trading.</li>
+                <li>Every trade has a stop-loss <b>before</b> entry. Never widen it.</li>
+                <li>Minimum <b>1:1.5 R:R</b> unless the strategy has a proven high win rate.</li>
+                <li>Move SL to breakeven only after price reaches ~1R or a new structure forms.</li>
+                <li>No new trades 15–30 min before/after high-impact (red-folder) news.</li>
+                <li>Correlated pairs (EURUSD + GBPUSD) = the same trade; count the risk together.</li>
+              </ul>
+            </div>
+            <div class="card" data-search="breakeven win rate expectancy reward ratio table">
+              <h3>Win Rate Needed to Break Even</h3>
+              <table class="tbl">
+                <thead><tr><th>R:R</th><th>Break-even win %</th><th>Expectancy @ 50% win</th></tr></thead>
+                <tbody id="beTable"></tbody>
+              </table>
+              <p class="small">Expectancy (in R) = Win% × R − Loss% × 1. Positive = profitable over many trades.</p>
+            </div>
+            <div class="card" data-search="lot size pip value standard mini micro">
+              <h3>Lots &amp; Pip Values</h3>
+              <table class="tbl">
+                <thead><tr><th>Lot</th><th>Units</th><th>Pip value (XXX/USD)</th></tr></thead>
+                <tbody>
+                  <tr><td>Standard (1.00)</td><td>100,000</td><td>$10.00</td></tr>
+                  <tr><td>Mini (0.10)</td><td>10,000</td><td>$1.00</td></tr>
+                  <tr><td>Micro (0.01)</td><td>1,000</td><td>$0.10</td></tr>
+                </tbody>
+              </table>
+              <p class="small">Pip = 4th decimal (0.0001) on most pairs, 2nd decimal (0.01) on JPY pairs. Gold: 1 lot = 100 oz, a $1.00 move = $100.</p>
+            </div>
+            <div class="card" data-search="psychology discipline journal mindset">
+              <h3>Psychology &amp; Process</h3>
+              <ul class="bullets">
+                <li>Trade your plan, not your P&amp;L. Hide the account balance if it distracts you.</li>
+                <li>No setup = no trade. Sitting out is a position.</li>
+                <li>Journal every trade: screenshot, reason, emotion, result, R multiple.</li>
+                <li>FOMO after a missed move → wait for the next pullback instead.</li>
+                <li>Judge yourself on rule-following, not single trade outcomes.</li>
+                <li>Review weekly: which setups pay you? Trade more of those, cut the rest.</li>
+              </ul>
+            </div>
+            <div class="card" data-search="multi timeframe analysis top down htf ltf">
+              <h3>Top-Down (Multi-Timeframe) Analysis</h3>
+              <table class="tbl">
+                <thead><tr><th>Style</th><th>Bias TF</th><th>Setup TF</th><th>Entry TF</th></tr></thead>
+                <tbody>
+                  <tr><td>Scalping</td><td>H1</td><td>M15</td><td>M1–M5</td></tr>
+                  <tr><td>Intraday</td><td>H4</td><td>H1</td><td>M5–M15</td></tr>
+                  <tr><td>Swing</td><td>D1/W1</td><td>H4</td><td>H1</td></tr>
+                </tbody>
+              </table>
+              <p class="small">Trade in the direction of the higher timeframe. Use the lower timeframe only to refine entry.</p>
+            </div>
+            <div class="card" data-search="pairs characteristics volatility best session">
+              <h3>Pair Cheat Sheet</h3>
+              <table class="tbl">
+                <thead><tr><th>Pair</th><th>Avg daily range*</th><th>Best session</th></tr></thead>
+                <tbody>
+                  <tr><td>EURUSD</td><td>60–90 pips</td><td>London / overlap</td></tr>
+                  <tr><td>GBPUSD</td><td>80–120 pips</td><td>London / overlap</td></tr>
+                  <tr><td>USDJPY</td><td>70–110 pips</td><td>Tokyo / NY</td></tr>
+                  <tr><td>AUDUSD</td><td>50–80 pips</td><td>Sydney / Tokyo</td></tr>
+                  <tr><td>USDCAD</td><td>60–90 pips</td><td>NY (oil news)</td></tr>
+                  <tr><td>GBPJPY</td><td>120–180 pips</td><td>London</td></tr>
+                  <tr><td>XAUUSD</td><td>$20–40</td><td>London / NY</td></tr>
+                </tbody>
+              </table>
+              <p class="small">*Rough ranges — check the current D1 ATR(14).</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="glossary" data-static>
+          <h2><span class="sec-icon">📖</span> Glossary</h2>
+          <div class="card"><dl class="glossary" id="glossaryList"></dl></div>
+        </section>
+
+        <footer class="foot">Personal reference only — not financial advice. Charts are illustrative examples generated from synthetic price data.</footer>
+      </main>
+    </div>
+  </div>
+
+  <!-- ===================== POSITION SIZE OVERLAY ===================== -->
+  <div class="modal calc-modal" id="calcModal" hidden>
+    <div class="modal-inner calc-inner" role="dialog" aria-label="Position size calculator">
+      <button class="icon-btn modal-close" id="calcClose" aria-label="Close">✕</button>
       <div class="panel-h"><h2>Position Size</h2><span class="small" id="rateInfo"></span></div>
       <div class="calc-in">
         <label class="w2">Balance
@@ -51,7 +196,7 @@
         <label class="w1">Side
           <div class="seg" id="cSide"><button data-v="buy" class="buy">Buy</button><button data-v="sell" class="sell">Sell</button></div>
         </label>
-        <label class="w2">Entry (optional)<input id="cEntry" type="number" step="0.00001" placeholder="for SL/TP prices" inputmode="decimal" /></label>
+        <label class="w4">Entry price (optional — fills SL/TP prices)<input id="cEntry" type="number" step="0.00001" placeholder="e.g. 1.08500" inputmode="decimal" /></label>
       </div>
       <div class="calc-out">
         <div class="big-stat lots"><div class="k">Lot size</div><div class="v" id="oLots">–</div><div class="sub" id="oUnits"></div></div>
@@ -62,45 +207,11 @@
         <thead><tr><th></th><th>Pips</th><th>Price</th><th>P/L</th></tr></thead>
         <tbody id="oLevels"></tbody>
       </table>
-    </section>
+      <p class="small center">Esc to close · values are remembered</p>
+    </div>
+  </div>
 
-    <!-- CHECKLIST + RISK GUARD -->
-    <section class="panel mid">
-      <div class="checklist-box">
-        <div class="panel-h"><h2>Pre-Trade Checklist</h2><span class="small" id="ckCount"></span></div>
-        <ul class="ck" id="ckList"></ul>
-        <button class="take-btn" id="takeBtn" disabled>🔒 Take trade</button>
-      </div>
-      <div class="guard-box" id="guardBox">
-        <div class="panel-h"><h2>Daily Risk Guard</h2><button class="link-btn" id="gReset">new day</button></div>
-        <div class="guard-stats">
-          <div class="g"><div class="k">Trades</div><div class="v" id="gTrades">0</div><div class="sub" id="gTradesMax"></div></div>
-          <div class="g"><div class="k">R today</div><div class="v" id="gR">0.0</div><div class="sub" id="gRMax"></div></div>
-          <div class="g"><div class="k">Loss streak</div><div class="v" id="gStreak">0</div><div class="sub">in a row</div></div>
-        </div>
-        <div class="guard-msg" id="gMsg"></div>
-        <div class="guard-log">
-          <span class="small">Log result:</span>
-          <button class="r-btn win" id="gWin">Win</button>
-          <input id="gWinR" type="number" value="2" step="0.1" min="0" title="R won" />
-          <span class="small">R</span>
-          <button class="r-btn be" id="gBe">BE</button>
-          <button class="r-btn loss" id="gLoss">Loss −1R</button>
-          <button class="link-btn" id="gUndo" title="Undo last entry">undo</button>
-        </div>
-        <div class="chips" id="gChips"></div>
-      </div>
-    </section>
-
-    <!-- CALENDAR -->
-    <section class="panel cal">
-      <div class="panel-h"><h2>High-Impact News</h2><a class="small" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener">ForexFactory ↗</a></div>
-      <ul class="evlist" id="evList"></ul>
-      <div class="tv-wrap" id="tvWrap"></div>
-    </section>
-  </main>
-
-  <!-- SETTINGS -->
+  <!-- ===================== SETTINGS ===================== -->
   <div class="modal" id="settings" hidden>
     <div class="modal-inner settings-inner">
       <button class="icon-btn modal-close" id="setClose" aria-label="Close">✕</button>
@@ -111,21 +222,20 @@
           <label>Display timezone<select id="sTz"></select></label>
           <label>No-trade window before news (min)<input id="sNewsBefore" type="number" min="0" step="5" /></label>
           <label>No-trade window after news (min)<input id="sNewsAfter" type="number" min="0" step="5" /></label>
-          <label>Warn (amber) before news (min)<input id="sNewsWarn" type="number" min="0" step="5" /></label>
-          <label class="inline"><input id="sNewsPairOnly" type="checkbox" /> Only currencies of my selected pair</label>
+          <label>Early warning before news (min)<input id="sNewsWarn" type="number" min="0" step="5" /></label>
+          <label class="inline"><input id="sNewsPairOnly" type="checkbox" /> Only news for my calculator pair's currencies</label>
         </fieldset>
         <fieldset>
           <legend>Risk limits</legend>
+          <label>Max trades per day<input id="sMaxTrades" type="number" min="1" step="1" /></label>
           <label>Max risk per trade (%)<input id="sMaxRisk" type="number" min="0" step="0.25" /></label>
           <label>Minimum R:R<input id="sMinRR" type="number" min="0" step="0.5" /></label>
-          <label>Max daily loss (R)<input id="sMaxLossR" type="number" min="0.5" step="0.5" /></label>
-          <label>Max trades per day<input id="sMaxTrades" type="number" min="1" step="1" /></label>
-          <label>Warn after consecutive losses<input id="sStreakWarn" type="number" min="1" step="1" /></label>
+          <label class="inline"><input id="sAnim" type="checkbox" /> Animated background</label>
         </fieldset>
         <fieldset class="wide">
           <legend>Checklist rules (one per line)</legend>
           <textarea id="sRules" rows="6"></textarea>
-          <p class="small">“News clear” and “Risk within limit” are added automatically and checked live.</p>
+          <p class="small">“No high-impact news” and “Risk within limit” are added automatically and checked live.</p>
         </fieldset>
         <fieldset class="wide">
           <legend>Quick links (one per line: <code>Label | https://url</code>)</legend>
@@ -141,6 +251,23 @@
     </div>
   </div>
 
+  <!-- chart zoom (playbook) -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-inner">
+      <button class="icon-btn modal-close" id="modalClose" aria-label="Close">✕</button>
+      <h3 id="modalTitle"></h3>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="assets/js/chart.js"></script>
+  <script src="assets/js/data/helpers.js"></script>
+  <script src="assets/js/data/strategies.js"></script>
+  <script src="assets/js/data/candles.js"></script>
+  <script src="assets/js/data/patterns.js"></script>
+  <script src="assets/js/data/indicators.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/bg.js"></script>
   <script src="assets/js/dashboard.js"></script>
 </body>
 </html>

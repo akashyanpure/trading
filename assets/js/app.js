@@ -1,13 +1,12 @@
-/* Playbook page: renders reference sections, nav, search, chart zoom. */
-(function () {
+/* Playbook tab: renders reference sections, nav, search, chart zoom. Called once when the tab is first opened. */
+window.initPlaybook = function () {
   'use strict';
+  if (window.__pbReady) return;
+  window.__pbReady = true;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  /* ---------- theme ---------- */
-  const setTheme = (t) => { document.documentElement.dataset.theme = t; try { localStorage.setItem('fx-theme', t); } catch (e) {} };
-  $('#themeBtn').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
 
   /* ---------- render sections ---------- */
   const charts = {};
@@ -94,8 +93,9 @@
     $$('#sidebar a[data-nav]').forEach((a) => a.classList.toggle('hidden', !!q && $('#' + a.dataset.nav).classList.contains('hidden')));
   });
   document.addEventListener('keydown', (e) => {
+    if (document.documentElement.dataset.tab !== 'playbook') return;
     if (e.key === '/' && document.activeElement !== search) { e.preventDefault(); search.focus(); }
-    if (e.key === 'Escape') { if (!$('#modal').hidden) closeModal(); else { search.value = ''; search.dispatchEvent(new Event('input')); search.blur(); } }
+    if (e.key === 'Escape') { if (!$('#modal').hidden) closeModal(); else if (document.activeElement === search) { search.value = ''; search.dispatchEvent(new Event('input')); search.blur(); } }
   });
 
   /* ---------- chart zoom modal ---------- */
@@ -133,4 +133,4 @@
     ['Breakeven (BE)', 'Moving the stop to the entry price so the trade can\'t lose.'], ['NFP', 'US Non-Farm Payrolls — first Friday of the month, very high impact.'],
   ];
   $('#glossaryList').innerHTML = glossary.map(([t, d]) => `<div><dt>${esc(t)}</dt><dd>${esc(d)}</dd></div>`).join('');
-})();
+};
