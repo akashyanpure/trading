@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Forex Playbook</title>
+  <meta name="description" content="Personal forex trading quick reference: strategies, candlestick patterns, chart patterns, indicators, risk tools." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f172a'/%3E%3Cline x1='10' y1='5' x2='10' y2='27' stroke='%2322c55e' stroke-width='2'/%3E%3Crect x='7' y='10' width='6' height='11' fill='%2322c55e'/%3E%3Cline x1='22' y1='4' x2='22' y2='24' stroke='%23ef4444' stroke-width='2'/%3E%3Crect x='19' y='8' width='6' height='10' fill='%23ef4444'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/dash.css" />
+  <script>
+    try { const t = localStorage.getItem('fx-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
+    <a href="#top" class="brand"><span class="logo">▮▮</span> Forex Playbook</a>
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Search strategies, patterns, indicators…  ( / )" autocomplete="off" />
+    </div>
+    <nav class="pages"><a href="./">⚡ Dashboard</a><a href="playbook.html" class="on">📘 Playbook</a></nav>
+    <button class="icon-btn" id="themeBtn" aria-label="Toggle theme" title="Toggle light/dark">◐</button>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar" aria-label="Sections"></nav>
+
+    <main id="top">
+      <div id="dynamic"></div>
+
+      <!-- ============ RISK & PSYCHOLOGY ============ -->
+      <section class="section" id="risk" data-static>
+        <h2><span class="sec-icon">🛡️</span> Risk Management &amp; Rules</h2>
+        <p class="intro">Strategy decides <i>when</i> to trade. Risk management decides whether you are still trading next year.</p>
+        <div class="grid two">
+          <div class="card" data-search="risk rules one percent daily loss drawdown">
+            <h3>Hard Rules</h3>
+            <ul class="bullets">
+              <li>Risk <b>0.5–1%</b> of the account per trade. Never more than 2%.</li>
+              <li>Max daily loss <b>3%</b> → stop trading for the day.</li>
+              <li>Stop after <b>2–3 consecutive losses</b>; review instead of revenge trading.</li>
+              <li>Every trade has a stop-loss <b>before</b> entry. Never widen it.</li>
+              <li>Minimum <b>1:1.5 R:R</b> unless the strategy has a proven high win rate.</li>
+              <li>Move SL to breakeven only after price reaches ~1R or a new structure forms.</li>
+              <li>Check the economic calendar: no new trades 15–30 min before/after red-folder news.</li>
+              <li>Correlated pairs (EURUSD + GBPUSD) = the same trade; count the risk together.</li>
+            </ul>
+          </div>
+          <div class="card" data-search="breakeven win rate expectancy reward ratio table">
+            <h3>Win Rate Needed to Break Even</h3>
+            <table class="tbl">
+              <thead><tr><th>R:R</th><th>Break-even win %</th><th>Expectancy @ 50% win</th></tr></thead>
+              <tbody id="beTable"></tbody>
+            </table>
+            <p class="small">Expectancy (in R) = Win% × R − Loss% × 1. Positive = profitable over many trades.</p>
+          </div>
+          <div class="card" data-search="lot size pip value standard mini micro">
+            <h3>Lots &amp; Pip Values</h3>
+            <table class="tbl">
+              <thead><tr><th>Lot</th><th>Units</th><th>Pip value (XXX/USD)</th></tr></thead>
+              <tbody>
+                <tr><td>Standard (1.00)</td><td>100,000</td><td>$10.00</td></tr>
+                <tr><td>Mini (0.10)</td><td>10,000</td><td>$1.00</td></tr>
+                <tr><td>Micro (0.01)</td><td>1,000</td><td>$0.10</td></tr>
+              </tbody>
+            </table>
+            <p class="small">Pip = 4th decimal (0.0001) on most pairs, 2nd decimal (0.01) on JPY pairs. Gold: 1 lot = 100 oz, a $1.00 move = $100.</p>
+          </div>
+          <div class="card" data-search="psychology discipline journal mindset">
+            <h3>Psychology &amp; Process</h3>
+            <ul class="bullets">
+              <li>Trade your plan, not your P&amp;L. Hide the account balance if it distracts you.</li>
+              <li>No setup = no trade. Sitting out is a position.</li>
+              <li>Journal every trade: screenshot, reason, emotion, result, R multiple.</li>
+              <li>FOMO after a missed move → wait for the next pullback instead.</li>
+              <li>Judge yourself on rule-following, not single trade outcomes.</li>
+              <li>Review weekly: which setups pay you? Trade more of those, cut the rest.</li>
+            </ul>
+          </div>
+          <div class="card" data-search="multi timeframe analysis top down htf ltf">
+            <h3>Top-Down (Multi-Timeframe) Analysis</h3>
+            <table class="tbl">
+              <thead><tr><th>Style</th><th>Bias TF</th><th>Setup TF</th><th>Entry TF</th></tr></thead>
+              <tbody>
+                <tr><td>Scalping</td><td>H1</td><td>M15</td><td>M1–M5</td></tr>
+                <tr><td>Intraday</td><td>H4</td><td>H1</td><td>M5–M15</td></tr>
+                <tr><td>Swing</td><td>D1/W1</td><td>H4</td><td>H1</td></tr>
+              </tbody>
+            </table>
+            <p class="small">Trade in the direction of the higher timeframe. Use the lower timeframe only to refine entry.</p>
+          </div>
+          <div class="card" data-search="pairs characteristics volatility best session">
+            <h3>Pair Cheat Sheet</h3>
+            <table class="tbl">
+              <thead><tr><th>Pair</th><th>Avg daily range*</th><th>Best session</th></tr></thead>
+              <tbody>
+                <tr><td>EURUSD</td><td>60–90 pips</td><td>London / overlap</td></tr>
+                <tr><td>GBPUSD</td><td>80–120 pips</td><td>London / overlap</td></tr>
+                <tr><td>USDJPY</td><td>70–110 pips</td><td>Tokyo / NY</td></tr>
+                <tr><td>AUDUSD</td><td>50–80 pips</td><td>Sydney / Tokyo</td></tr>
+                <tr><td>USDCAD</td><td>60–90 pips</td><td>NY (oil news)</td></tr>
+                <tr><td>GBPJPY</td><td>120–180 pips</td><td>London</td></tr>
+                <tr><td>XAUUSD</td><td>$20–40</td><td>London / NY</td></tr>
+              </tbody>
+            </table>
+            <p class="small">*Rough ranges — check the current D1 ATR(14).</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ GLOSSARY ============ -->
+      <section class="section" id="glossary" data-static>
+        <h2><span class="sec-icon">📖</span> Glossary</h2>
+        <div class="card"><dl class="glossary" id="glossaryList"></dl></div>
+      </section>
+
+      <footer class="foot">Personal reference only — not financial advice. Charts are illustrative examples generated from synthetic price data.</footer>
+    </main>
+  </div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-inner">
+      <button class="icon-btn modal-close" id="modalClose" aria-label="Close">✕</button>
+      <h3 id="modalTitle"></h3>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="assets/js/chart.js"></script>
+  <script src="assets/js/data/helpers.js"></script>
+  <script src="assets/js/data/strategies.js"></script>
+  <script src="assets/js/data/candles.js"></script>
+  <script src="assets/js/data/patterns.js"></script>
+  <script src="assets/js/data/indicators.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

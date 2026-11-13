@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trading Dashboard</title>
+  <meta name="description" content="Live forex session dashboard: position sizing, session clock, news guard, checklist and daily risk guard." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f172a'/%3E%3Cline x1='10' y1='5' x2='10' y2='27' stroke='%2322c55e' stroke-width='2'/%3E%3Crect x='7' y='10' width='6' height='11' fill='%2322c55e'/%3E%3Cline x1='22' y1='4' x2='22' y2='24' stroke='%23ef4444' stroke-width='2'/%3E%3Crect x='19' y='8' width='6' height='10' fill='%23ef4444'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/dash.css" />
+  <script>
+    try { const t = localStorage.getItem('fx-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body class="dash">
+  <header class="topbar">
+    <a href="./" class="brand"><span class="logo">▮▮</span> <span class="txt">Trading Desk</span></a>
+    <nav class="pages"><a href="./" class="on">⚡ Dashboard</a><a href="playbook.html">📘 Playbook</a></nav>
+    <nav class="quick" id="quickLinks" aria-label="Quick links"></nav>
+    <div class="top-right">
+      <div class="tz-clock"><span id="clockTime">--:--:--</span><span id="clockTz" class="small"></span></div>
+      <button class="icon-btn" id="themeBtn" title="Toggle light/dark">◐</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <!-- NEWS BANNER -->
+  <div class="news-banner" id="newsBanner" data-state="unknown">
+    <span class="nb-icon" id="nbIcon">📰</span>
+    <span class="nb-main" id="nbMain">Loading economic calendar…</span>
+    <span class="nb-count" id="nbCount"></span>
+    <span class="nb-next small" id="nbNext"></span>
+  </div>
+
+  <!-- SESSIONS -->
+  <div class="sessions" id="sessions"></div>
+
+  <main class="dash-grid">
+    <!-- POSITION SIZE -->
+    <section class="panel calc" aria-label="Position size calculator">
+      <div class="panel-h"><h2>Position Size</h2><span class="small" id="rateInfo"></span></div>
+      <div class="calc-in">
+        <label class="w2">Balance
+          <div class="joined"><select id="cCcy"><option>USD</option><option>GBP</option><option>EUR</option></select><input id="cBal" type="number" min="0" step="100" inputmode="decimal" /></div>
+        </label>
+        <label class="w2">Risk
+          <div class="joined"><select id="cRiskMode"><option value="pct">%</option><option value="amt">£/$</option></select><input id="cRisk" type="number" min="0" step="0.05" inputmode="decimal" /></div>
+        </label>
+        <label class="w2">Pair<select id="cPair"></select></label>
+        <label class="w1">Stop (pips)<input id="cSl" type="number" min="0.1" step="0.5" inputmode="decimal" /></label>
+        <label class="w1">Side
+          <div class="seg" id="cSide"><button data-v="buy" class="buy">Buy</button><button data-v="sell" class="sell">Sell</button></div>
+        </label>
+        <label class="w2">Entry (optional)<input id="cEntry" type="number" step="0.00001" placeholder="for SL/TP prices" inputmode="decimal" /></label>
+      </div>
+      <div class="calc-out">
+        <div class="big-stat lots"><div class="k">Lot size</div><div class="v" id="oLots">–</div><div class="sub" id="oUnits"></div></div>
+        <div class="big-stat risk"><div class="k">Exact risk</div><div class="v" id="oRisk">–</div><div class="sub" id="oRiskPct"></div></div>
+        <div class="big-stat pip"><div class="k">Pip value</div><div class="v" id="oPip">–</div><div class="sub" id="oPipLot"></div></div>
+      </div>
+      <table class="rtable">
+        <thead><tr><th></th><th>Pips</th><th>Price</th><th>P/L</th></tr></thead>
+        <tbody id="oLevels"></tbody>
+      </table>
+    </section>
+
+    <!-- CHECKLIST + RISK GUARD -->
+    <section class="panel mid">
+      <div class="checklist-box">
+        <div class="panel-h"><h2>Pre-Trade Checklist</h2><span class="small" id="ckCount"></span></div>
+        <ul class="ck" id="ckList"></ul>
+        <button class="take-btn" id="takeBtn" disabled>🔒 Take trade</button>
+      </div>
+      <div class="guard-box" id="guardBox">
+        <div class="panel-h"><h2>Daily Risk Guard</h2><button class="link-btn" id="gReset">new day</button></div>
+        <div class="guard-stats">
+          <div class="g"><div class="k">Trades</div><div class="v" id="gTrades">0</div><div class="sub" id="gTradesMax"></div></div>
+          <div class="g"><div class="k">R today</div><div class="v" id="gR">0.0</div><div class="sub" id="gRMax"></div></div>
+          <div class="g"><div class="k">Loss streak</div><div class="v" id="gStreak">0</div><div class="sub">in a row</div></div>
+        </div>
+        <div class="guard-msg" id="gMsg"></div>
+        <div class="guard-log">
+          <span class="small">Log result:</span>
+          <button class="r-btn win" id="gWin">Win</button>
+          <input id="gWinR" type="number" value="2" step="0.1" min="0" title="R won" />
+          <span class="small">R</span>
+          <button class="r-btn be" id="gBe">BE</button>
+          <button class="r-btn loss" id="gLoss">Loss −1R</button>
+          <button class="link-btn" id="gUndo" title="Undo last entry">undo</button>
+        </div>
+        <div class="chips" id="gChips"></div>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section class="panel cal">
+      <div class="panel-h"><h2>High-Impact News</h2><a class="small" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener">ForexFactory ↗</a></div>
+      <ul class="evlist" id="evList"></ul>
+      <div class="tv-wrap" id="tvWrap"></div>
+    </section>
+  </main>
+
+  <!-- SETTINGS -->
+  <div class="modal" id="settings" hidden>
+    <div class="modal-inner settings-inner">
+      <button class="icon-btn modal-close" id="setClose" aria-label="Close">✕</button>
+      <h3>Settings</h3>
+      <div class="set-grid">
+        <fieldset>
+          <legend>Time &amp; news</legend>
+          <label>Display timezone<select id="sTz"></select></label>
+          <label>No-trade window before news (min)<input id="sNewsBefore" type="number" min="0" step="5" /></label>
+          <label>No-trade window after news (min)<input id="sNewsAfter" type="number" min="0" step="5" /></label>
+          <label>Warn (amber) before news (min)<input id="sNewsWarn" type="number" min="0" step="5" /></label>
+          <label class="inline"><input id="sNewsPairOnly" type="checkbox" /> Only currencies of my selected pair</label>
+        </fieldset>
+        <fieldset>
+          <legend>Risk limits</legend>
+          <label>Max risk per trade (%)<input id="sMaxRisk" type="number" min="0" step="0.25" /></label>
+          <label>Minimum R:R<input id="sMinRR" type="number" min="0" step="0.5" /></label>
+          <label>Max daily loss (R)<input id="sMaxLossR" type="number" min="0.5" step="0.5" /></label>
+          <label>Max trades per day<input id="sMaxTrades" type="number" min="1" step="1" /></label>
+          <label>Warn after consecutive losses<input id="sStreakWarn" type="number" min="1" step="1" /></label>
+        </fieldset>
+        <fieldset class="wide">
+          <legend>Checklist rules (one per line)</legend>
+          <textarea id="sRules" rows="6"></textarea>
+          <p class="small">“News clear” and “Risk within limit” are added automatically and checked live.</p>
+        </fieldset>
+        <fieldset class="wide">
+          <legend>Quick links (one per line: <code>Label | https://url</code>)</legend>
+          <textarea id="sLinks" rows="5"></textarea>
+        </fieldset>
+        <fieldset class="wide">
+          <legend>Backup</legend>
+          <p class="small">Everything is saved in this browser (localStorage) — no login. Export to move it to another browser/device.</p>
+          <div class="row-btns"><button class="btn" id="sExport">Export JSON</button><label class="btn">Import JSON<input type="file" id="sImport" accept="application/json" hidden /></label><button class="btn danger" id="sWipe">Reset all</button></div>
+        </fieldset>
+      </div>
+      <div class="row-btns end"><button class="btn primary" id="sSave">Save</button></div>
+    </div>
+  </div>
+
+  <script src="assets/js/dashboard.js"></script>
+</body>
+</html>

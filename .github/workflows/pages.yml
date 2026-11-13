@@ -1,0 +1,59 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Refresh the economic calendar feed every 2 hours (Sun-Fri)
+    - cron: "15 */2 * * 0-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site/data
+          cp index.html playbook.html _site/
+          cp -r assets _site/
+          touch _site/.nojekyll
+
+      - name: Fetch economic calendar (ForexFactory weekly feed)
+        run: |
+          if curl -fsSL --retry 3 --retry-delay 5 -A "Mozilla/5.0 (personal dashboard)" \
+               https://nfs.faireconomy.media/ff_calendar_thisweek.json -o /tmp/cal.json \
+             && python3 -c "import json;json.load(open('/tmp/cal.json'))"; then
+            cp /tmp/cal.json _site/data/calendar.json
+            echo "Calendar events: $(python3 -c "import json;print(len(json.load(open('/tmp/cal.json'))))")"
+          else
+            echo "::warning::Calendar feed unavailable; publishing empty calendar"
+            echo "[]" > _site/data/calendar.json
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
