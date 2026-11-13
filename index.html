@@ -29,6 +29,8 @@
       <button role="tab" class="tab" data-tab="playbook"><span class="ti">📘</span> Playbook <kbd>2</kbd></button>
     </nav>
 
+    <button class="calc-btn dash-only" id="calcOpen" title="Position size calculator (P)"><span>🧮</span> Position size <kbd>P</kbd></button>
+
     <nav class="quick dash-only" id="quickLinks" aria-label="Quick links"></nav>
     <div class="search-wrap pb-only">
       <input id="search" type="search" placeholder="Search strategies, patterns, indicators…  ( / )" autocomplete="off" />
@@ -63,17 +65,13 @@
         <div class="cnt-dots" id="cDots"></div>
         <div class="cnt-msg" id="cMsg"></div>
 
-        <button class="calc-launch" id="calcOpen">
-          <span class="cl-ic">🧮</span>
-          <span class="cl-txt"><b>Position size</b><span id="calcSummary" class="small"></span></span>
-          <kbd>P</kbd>
-        </button>
+        <div class="calc-summary small" id="calcSummary"></div>
       </section>
 
       <section class="panel mid">
         <div class="panel-h"><h2>Pre-Trade Checklist</h2><span class="small" id="ckCount"></span></div>
         <ul class="ck" id="ckList"></ul>
-        <button class="take-btn" id="takeBtn" disabled>🔒 Take trade</button>
+        <div class="ck-status" id="ckStatus"></div>
       </section>
 
       <section class="panel cal">

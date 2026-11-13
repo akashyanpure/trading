@@ -4,12 +4,7 @@
   const REV = { t: 'Reversal', c: 'info' }, CONT = { t: 'Continuation', c: 'info' };
   const n1 = { t: '1 candle', c: 'muted' }, n2 = { t: '2 candles', c: 'muted' }, n3 = { t: '3 candles', c: 'muted' };
 
-  SECTIONS.push({
-    id: 'candles',
-    title: 'Candlestick Patterns',
-    icon: '🕯️',
-    intro: 'Candlestick patterns show who won the fight between buyers and sellers during each period. Location matters more than shape: a pattern means much more at support/resistance, a supply/demand zone, or a key EMA than in the middle of a range. Always wait for the candle to <b>close</b> before acting.',
-    items: [
+  const items = [
       {
         id: 'hammer', name: 'Hammer', tags: [BULL, REV, n1], rel: 'Medium–High',
         chart: cp({ seed: 11, pre: [-40, 14], fn: (b) => b.k(-3, 1, 2).k(2.5, 0.6, 16), post: [32, 10], label: 'Hammer', cls: 'bull', arrow: 'up' }),
@@ -81,14 +76,25 @@
         },
       },
       {
-        id: 'marubozu', name: 'Marubozu', tags: [BULL, CONT, n1], rel: 'Medium–High',
-        chart: { seed: 18, build: (b) => { b.to(5, 4, 2).range(-6, 6, 14, 2); b.k(1, 0.5, 1); b.k(22, 0.2, 0.2).mark('p'); b.to(b.last + 24, 9, 2.5); },
+        id: 'marubozu', name: 'Bullish Marubozu', tags: [BULL, CONT, n1], rel: 'Medium–High',
+        chart: { seed: 18, build: (b) => { b.to(5, 3, 2).range(-6, 6, 8, 2); b.k(1, 0.5, 1); b.k(22, 0.2, 0.2).mark('p'); b.to(b.last + 24, 6, 2.5); },
           ann: (c, m) => [{ t: 'h', y: H.hi(c, 0, m.p - 1), label: 'Range high', cls: 'res', x2: m.p }, { t: 'b', x1: m.p, x2: m.p, label: 'Bullish marubozu', cls: 'bull' }] },
         desc: 'A full-body candle with no (or almost no) wicks. One side completely controlled the period. Often starts a breakout or continuation.',
         points: {
           Identify: ['Body = nearly the whole range', 'Green = buyers in control, red = sellers in control'],
           Trade: ['Breakout out of a range: enter on a small pullback into the candle (50% of body)', 'SL below the candle midpoint/low'],
           Tips: ['A marubozu against your position is a strong reason to exit'],
+        },
+      },
+      {
+        id: 'bear-marubozu', name: 'Bearish Marubozu', tags: [BEAR, CONT, n1], rel: 'Medium–High',
+        chart: { seed: 20, build: (b) => { b.to(-5, 3, 2).range(-6, 6, 8, 2); b.k(-1, 1, 0.5); b.k(-22, 0.2, 0.2).mark('p'); b.to(b.last - 24, 6, 2.5); },
+          ann: (c, m) => [{ t: 'h', y: H.lo(c, 0, m.p - 1), label: 'Range low', cls: 'sup', x2: m.p, below: true }, { t: 'b', x1: m.p, x2: m.p, label: 'Bearish marubozu', cls: 'bear', below: true }] },
+        desc: 'A full red body with no wicks: sellers controlled the entire period from open to close. Often starts a breakdown or continues a downtrend.',
+        points: {
+          Identify: ['Open ≈ high, close ≈ low, (almost) no wicks'],
+          Trade: ['Breakdown from a range: sell a pullback into the upper half of the candle', 'SL above the candle midpoint/high'],
+          Tips: ['A bearish marubozu against a long position is a strong reason to exit'],
         },
       },
       {
@@ -231,6 +237,11 @@
           Tips: ['Best on 4H/Daily in trending markets', 'Ignore inside bars in choppy ranges'],
         },
       },
-    ],
-  });
+  ];
+
+  const pick = (fn) => items.filter((it) => fn(it.tags[0].c));
+  const base = 'Location matters more than shape: a pattern means much more at support/resistance, a supply/demand zone or a key EMA than in the middle of a range. Always wait for the candle to <b>close</b> before acting.';
+  SECTIONS.push({ id: 'candles-bull', group: 'candles', title: 'Bullish Candlestick Patterns', icon: '🟢', intro: 'Buyers taking control — look for these at support, demand zones or after pullbacks in an uptrend. ' + base, items: pick((c) => c === 'bull') });
+  SECTIONS.push({ id: 'candles-bear', group: 'candles', title: 'Bearish Candlestick Patterns', icon: '🔴', intro: 'Sellers taking control — look for these at resistance, supply zones or after rallies in a downtrend. ' + base, items: pick((c) => c === 'bear') });
+  SECTIONS.push({ id: 'candles-neutral', group: 'candles', title: 'Neutral / Indecision Patterns', icon: '⚪', intro: 'Neither side in control. These warn that momentum is pausing; the <b>next</b> candle decides the direction.', items: pick((c) => c !== 'bull' && c !== 'bear') });
 })();

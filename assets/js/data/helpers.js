@@ -18,11 +18,11 @@ window.H = {
     return {
       seed: o.seed,
       build: (b) => {
-        b.to(o.pre[0], o.pre[1], o.vol || 2.5);
+        b.to(o.pre[0], Math.max(5, Math.round(o.pre[1] * 0.6)), o.vol || 2.5); // fewer candles = bigger candles
         const s = b.c.length;
         o.fn(b);
         b.m.s = s; b.m.e = b.c.length - 1;
-        if (o.post) b.to(b.last + o.post[0], o.post[1], o.vol || 2.5);
+        if (o.post) b.to(b.last + o.post[0], Math.max(4, Math.round(o.post[1] * 0.6)), o.vol || 2.5);
       },
       ann: (c, m) => {
         const out = [{ t: 'b', x1: m.s, x2: m.e, label: o.label, cls: o.cls, below: o.below }];

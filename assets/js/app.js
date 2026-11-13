@@ -1,12 +1,26 @@
-/* Playbook tab: renders reference sections, nav, search, chart zoom. Called once when the tab is first opened. */
+/* Playbook tab: category tabs in the left panel, sections, search, chart zoom. Runs once, when the tab is first opened. */
 window.initPlaybook = function () {
   'use strict';
   if (window.__pbReady) return;
   window.__pbReady = true;
+
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const secById = Object.fromEntries(SECTIONS.map((s) => [s.id, s]));
 
+  const CATS = [
+    { id: 'strategies', label: 'Strategies', icon: '🎯', secs: ['strategies'] },
+    { id: 'candles', label: 'Candlesticks', icon: '🕯️', secs: ['candles-bull', 'candles-bear', 'candles-neutral'] },
+    { id: 'patterns', label: 'Chart Patterns', icon: '📐', secs: ['patterns'] },
+    { id: 'concepts', label: 'Market Structure', icon: '🧭', secs: ['concepts'] },
+    { id: 'indicators', label: 'Indicators', icon: '📊', secs: ['ind-leading', 'ind-lagging'] },
+    { id: 'risk', label: 'Risk & Rules', icon: '🛡️', secs: ['risk'], static: true },
+    { id: 'glossary', label: 'Glossary', icon: '📖', secs: ['glossary'], static: true },
+  ];
+  const catOfSec = {};
+  CATS.forEach((c) => c.secs.forEach((s) => { catOfSec[s] = c.id; }));
+  const count = (cat) => (cat.static ? null : cat.secs.reduce((a, s) => a + (secById[s] ? secById[s].items.length : 0), 0));
 
   /* ---------- render sections ---------- */
   const charts = {};
@@ -15,12 +29,10 @@ window.initPlaybook = function () {
     const cls = ruleMode ? ({ Entry: 'entry', 'Stop loss': 'sl', 'Take profit': 'tp', Avoid: 'avoid' }[k] || '') : '';
     return `<div><h4 class="${cls}">${esc(k)}</h4><ul>${arr.map((x) => `<li>${x}</li>`).join('')}</ul></div>`;
   }).join('');
-
   function chartSvg(item) {
     try { return TChart.render(Object.assign({ title: item.name }, item.chart)); }
     catch (e) { console.error(item.id, e); return '<div class="empty">Chart error</div>'; }
   }
-
   function card(item, sec, idx) {
     charts[item.id] = item;
     const search = [item.name, item.desc, (item.tags || []).map((t) => t.t).join(' '), sec.title].join(' ').toLowerCase();
@@ -29,8 +41,7 @@ window.initPlaybook = function () {
         <h3><span class="rank">${idx + 1}</span>${esc(item.name)}</h3>
         <div class="tags">${tagHtml(item.tags)}</div>
         <div class="strat">
-          <div><div class="chart-wrap" data-chart="${item.id}">${chartSvg(item)}</div>
-            <p class="desc">${item.desc}</p></div>
+          <div><div class="chart-wrap" data-chart="${item.id}">${chartSvg(item)}</div><p class="desc">${item.desc}</p></div>
           <div>
             <div class="stats">
               <div class="stat win"><div class="k">Typical win rate</div><div class="v">${esc(item.win)}</div></div>
@@ -44,58 +55,113 @@ window.initPlaybook = function () {
         </div></article>`;
     }
     return `<article class="card" id="${item.id}" data-search="${esc(search)}">
-      <h3>${esc(item.name)}</h3>
+      <h3>${sec.group === 'indicators' ? `<span class="rank">${idx + 1}</span>` : ''}${esc(item.name)}</h3>
       <div class="tags">${tagHtml(item.tags)}${item.rel ? `<span class="tag gold">Reliability: ${esc(item.rel)}</span>` : ''}</div>
       <div class="chart-wrap" data-chart="${item.id}">${chartSvg(item)}</div>
       <p class="desc">${item.desc}</p>
       <div class="points">${listHtml(item.points)}</div>
     </article>`;
   }
-
-  const gridCls = { strategies: 'one', candles: 'three' };
+  const gridCls = (id) => (id === 'strategies' ? 'one' : id.startsWith('candles') ? 'three' : 'two');
   $('#dynamic').innerHTML = SECTIONS.map((sec) => `
-    <section class="section" id="${sec.id}">
+    <section class="section" id="${sec.id}" data-cat="${catOfSec[sec.id] || sec.id}">
       <h2><span class="sec-icon">${sec.icon}</span> ${esc(sec.title)}</h2>
       <p class="intro">${sec.intro}</p>
-      <div class="grid ${gridCls[sec.id] || 'two'}">${sec.items.map((it, i) => card(it, sec, i)).join('')}</div>
+      <div class="grid ${gridCls(sec.id)}">${sec.items.map((it, i) => card(it, sec, i)).join('')}</div>
     </section>`).join('');
+  ['risk', 'glossary'].forEach((id) => { $('#' + id).dataset.cat = id; });
 
-  /* ---------- sidebar ---------- */
-  const staticSecs = [{ id: 'risk', title: 'Risk & Rules', icon: '🛡️' }, { id: 'glossary', title: 'Glossary', icon: '📖' }];
-  $('#sidebar').innerHTML = SECTIONS.map((s) => `
-      <a class="nav-sec" href="#${s.id}"><span>${s.icon} ${esc(s.title.replace(/ \(.*\)/, ''))}</span><span class="count">${s.items.length}</span></a>
-      <div class="nav-items">${s.items.map((it) => `<a href="#${it.id}" data-nav="${it.id}">${esc(it.name)}</a>`).join('')}</div>`).join('') +
-    staticSecs.map((s) => `<a class="nav-sec" href="#${s.id}"><span>${s.icon} ${s.title}</span></a>`).join('');
+  /* ---------- left panel: category tabs + items of the active category ---------- */
+  let active = 'strategies';
+  try { active = localStorage.getItem('fx-pbcat') || 'strategies'; } catch (e) {}
+  if (!CATS.some((c) => c.id === active)) active = 'strategies';
 
+  $('#sidebar').innerHTML = `
+    <div class="cat-tabs" role="tablist">${CATS.map((c) => `
+      <button class="cat-tab" role="tab" data-cat="${c.id}"><span class="ci">${c.icon}</span><span class="cl">${c.label}</span>${count(c) != null ? `<span class="cc">${count(c)}</span>` : ''}</button>`).join('')}
+    </div>
+    <div class="cat-items" id="catItems"></div>`;
+
+  function renderItems(q) {
+    const cats = q ? CATS.filter((c) => !c.static) : CATS.filter((c) => c.id === active);
+    let html = '';
+    cats.forEach((cat) => cat.secs.forEach((sid) => {
+      const sec = secById[sid];
+      if (!sec) return;
+      const items = sec.items.filter((it) => !q || !$('#' + it.id).classList.contains('hidden'));
+      if (!items.length) return;
+      html += `<div class="nav-group">${sec.icon} ${esc(sec.title.replace(/ \(.*\)/, ''))}</div>` + items.map((it) => `<a href="#${it.id}" data-nav="${it.id}">${esc(it.name)}</a>`).join('');
+    }));
+    $('#catItems').innerHTML = html || (q ? '<div class="small" style="padding:8px">No matches</div>' : '');
+    observe();
+  }
+  function showCat(id, keepScroll) {
+    active = id;
+    try { localStorage.setItem('fx-pbcat', id); } catch (e) {}
+    $$('.cat-tab').forEach((b) => b.classList.toggle('on', b.dataset.cat === id));
+    if (!search.value.trim()) $$('#pbMain .section').forEach((s) => s.classList.toggle('hidden', s.dataset.cat !== id));
+    renderItems(search.value.trim().toLowerCase());
+    if (!keepScroll) window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  $('#sidebar').addEventListener('click', (e) => {
+    const tab = e.target.closest('.cat-tab');
+    if (tab) { if (search.value) { search.value = ''; applySearch(); } showCat(tab.dataset.cat); return; }
+    const a = e.target.closest('a[data-nav]');
+    if (a) {
+      e.preventDefault();
+      const el = document.getElementById(a.dataset.nav);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      history.replaceState(null, '', '#' + a.dataset.nav);
+      $('#sidebar').classList.remove('open');
+    }
+  });
   $('#menuBtn').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
-  $('#sidebar').addEventListener('click', (e) => { if (e.target.closest('a')) $('#sidebar').classList.remove('open'); });
+
+  /* reveal an item by id (used for deep links like #hammer) */
+  window.pbReveal = function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const sec = el.closest('.section');
+    if (sec && sec.dataset.cat) showCat(sec.dataset.cat, true);
+    setTimeout(() => el.scrollIntoView({ behavior: 'instant', block: 'start' }), 0);
+  };
 
   /* active link highlight */
-  const navLinks = {};
-  $$('#sidebar a[data-nav]').forEach((a) => (navLinks[a.dataset.nav] = a));
-  const io = new IntersectionObserver((entries) => entries.forEach((en) => {
-    if (en.isIntersecting && navLinks[en.target.id]) {
-      Object.values(navLinks).forEach((a) => a.classList.remove('active'));
-      navLinks[en.target.id].classList.add('active');
-    }
-  }), { rootMargin: '-40% 0px -55% 0px' });
-  $$('article.card[id]').forEach((el) => io.observe(el));
+  let io = null;
+  function observe() {
+    if (io) io.disconnect();
+    const links = {};
+    $$('#catItems a[data-nav]').forEach((a) => { links[a.dataset.nav] = a; });
+    io = new IntersectionObserver((entries) => entries.forEach((en) => {
+      if (en.isIntersecting && links[en.target.id]) {
+        Object.values(links).forEach((a) => a.classList.remove('active'));
+        links[en.target.id].classList.add('active');
+        const sb = $('#sidebar'), a = links[en.target.id];
+        const top = a.offsetTop - sb.offsetTop;
+        if (top < sb.scrollTop + 40 || top > sb.scrollTop + sb.clientHeight - 60) sb.scrollTop = top - sb.clientHeight / 2;
+      }
+    }), { rootMargin: '-35% 0px -60% 0px' });
+    Object.keys(links).forEach((id) => { const el = document.getElementById(id); if (el) io.observe(el); });
+  }
 
-  /* ---------- search ---------- */
+  /* ---------- search (across all categories) ---------- */
   const search = $('#search');
-  search.addEventListener('input', () => {
+  function applySearch() {
     const q = search.value.trim().toLowerCase();
-    $$('.card[data-search]').forEach((c) => c.classList.toggle('hidden', !!q && !c.dataset.search.includes(q) && !c.textContent.toLowerCase().includes(q)));
-    $$('.section').forEach((s) => {
+    $$('#pbMain .card[data-search]').forEach((c) => c.classList.toggle('hidden', !!q && !c.dataset.search.includes(q) && !c.textContent.toLowerCase().includes(q)));
+    $$('#pbMain .section').forEach((s) => {
+      if (!q) { s.classList.toggle('hidden', s.dataset.cat !== active); return; }
       const cards = $$('.card[data-search]', s);
-      s.classList.toggle('hidden', !!q && cards.length > 0 && cards.every((c) => c.classList.contains('hidden')));
+      s.classList.toggle('hidden', cards.length === 0 || cards.every((c) => c.classList.contains('hidden')));
     });
-    $$('#sidebar a[data-nav]').forEach((a) => a.classList.toggle('hidden', !!q && $('#' + a.dataset.nav).classList.contains('hidden')));
-  });
+    $$('.cat-tab').forEach((b) => b.classList.toggle('on', !q && b.dataset.cat === active));
+    renderItems(q);
+  }
+  search.addEventListener('input', applySearch);
   document.addEventListener('keydown', (e) => {
     if (document.documentElement.dataset.tab !== 'playbook') return;
     if (e.key === '/' && document.activeElement !== search) { e.preventDefault(); search.focus(); }
-    if (e.key === 'Escape') { if (!$('#modal').hidden) closeModal(); else if (document.activeElement === search) { search.value = ''; search.dispatchEvent(new Event('input')); search.blur(); } }
+    if (e.key === 'Escape') { if (!$('#modal').hidden) closeModal(); else if (document.activeElement === search) { search.value = ''; applySearch(); search.blur(); } }
   });
 
   /* ---------- chart zoom modal ---------- */
@@ -103,8 +169,7 @@ window.initPlaybook = function () {
   document.addEventListener('click', (e) => {
     const w = e.target.closest('.chart-wrap');
     if (w && !w.closest('.modal')) {
-      const item = charts[w.dataset.chart];
-      $('#modalTitle').textContent = item.name;
+      $('#modalTitle').textContent = charts[w.dataset.chart].name;
       $('#modalBody').innerHTML = w.innerHTML;
       $('#modal').hidden = false;
     }
@@ -113,11 +178,7 @@ window.initPlaybook = function () {
   $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
 
   /* ---------- static tables ---------- */
-  $('#beTable').innerHTML = [1, 1.5, 2, 2.5, 3, 4].map((rr) => {
-    const be = (100 / (1 + rr)).toFixed(1), ex = (0.5 * rr - 0.5).toFixed(2);
-    return `<tr><td>1 : ${rr}</td><td>${be}%</td><td style="color:var(--bull)">+${ex} R / trade</td></tr>`;
-  }).join('');
-
+  $('#beTable').innerHTML = [1, 1.5, 2, 2.5, 3, 4].map((rr) => `<tr><td>1 : ${rr}</td><td>${(100 / (1 + rr)).toFixed(1)}%</td><td style="color:var(--bull)">+${(0.5 * rr - 0.5).toFixed(2)} R / trade</td></tr>`).join('');
   const glossary = [
     ['Pip', 'Smallest standard price move: 0.0001 (0.01 for JPY pairs).'], ['Pipette', 'Fractional pip, the 5th decimal (3rd on JPY).'],
     ['Lot', 'Trade size. 1 standard lot = 100,000 units of the base currency.'], ['Spread', 'Difference between bid and ask — your cost to enter.'],
@@ -129,8 +190,11 @@ window.initPlaybook = function () {
     ['CHoCH', 'Change of Character — first structure break against the trend.'], ['Order Block (OB)', 'Last opposite candle before an impulsive, structure-breaking move.'],
     ['FVG', 'Fair Value Gap — 3-candle imbalance where wicks do not overlap.'], ['Liquidity', 'Clusters of stop/limit orders, usually above highs and below lows.'],
     ['Premium / Discount', 'Upper / lower half of a range — sell premium, buy discount.'], ['Killzone', 'High-volume session windows (London open, NY open).'],
+    ['Leading indicator', 'Signals before the move (oscillators, pivots, fib). Early but noisier.'], ['Lagging indicator', 'Confirms after the move starts (MAs, MACD, ADX). Later but more reliable.'],
     ['ATR', 'Average True Range — average candle size; volatility gauge.'], ['Divergence', 'Price and an oscillator disagree on new highs/lows.'],
     ['Breakeven (BE)', 'Moving the stop to the entry price so the trade can\'t lose.'], ['NFP', 'US Non-Farm Payrolls — first Friday of the month, very high impact.'],
   ];
   $('#glossaryList').innerHTML = glossary.map(([t, d]) => `<div><dt>${esc(t)}</dt><dd>${esc(d)}</dd></div>`).join('');
+
+  showCat(active, true);
 };

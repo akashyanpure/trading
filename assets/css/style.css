@@ -54,7 +54,7 @@ h2, h3 { margin: 0; line-height: 1.25; }
 .menu-btn { display: none; }
 
 /* ---------- layout ---------- */
-.layout { display: grid; grid-template-columns: 250px 1fr; }
+.layout { display: grid; grid-template-columns: 300px 1fr; }
 .sidebar { position: sticky; top: var(--hdr, 57px); height: calc(100vh - var(--hdr, 57px)); overflow-y: auto; padding: 16px 10px 40px; border-right: 1px solid var(--border); background: var(--panel-2); }
 .sidebar a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--muted); font-size: 13.5px; }
 .sidebar a:hover { background: var(--panel); color: var(--text); }
@@ -214,3 +214,12 @@ main { padding: 20px 28px 60px; min-width: 0; }
   .form { grid-template-columns: 1fr; }
   .brand .txt { display: none; }
 }
+
+/* extra indicator overlays */
+.chart .kel { fill: none; stroke: var(--ma0); stroke-width: 1.3; stroke-dasharray: 5 3; }
+.chart .kelmid { fill: none; stroke: var(--ma1); stroke-width: 1.5; }
+.chart .st-up { fill: none; stroke: var(--bull); stroke-width: 2.2; }
+.chart .st-dn { fill: none; stroke: var(--bear); stroke-width: 2.2; }
+.chart .psar.bull { fill: var(--bull); } .chart .psar.bear { fill: var(--bear); }
+.chart .lg.kell { fill: var(--ma0); } .chart .lg.sarl { fill: var(--gold); } .chart .lg.stl { fill: var(--bull); }
+.chart .pl.p3 { stroke: var(--text); } .chart .pl.pb { stroke: var(--bull); stroke-width: 1.2; } .chart .pl.pr { stroke: var(--bear); stroke-width: 1.2; }

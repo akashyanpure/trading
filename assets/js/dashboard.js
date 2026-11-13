@@ -31,7 +31,7 @@
     document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === tab));
     if (tab === 'playbook' && window.initPlaybook) {
       window.initPlaybook();
-      if (fromHash) { const id = location.hash.slice(1); const el = id && id !== 'playbook' && document.getElementById(id); if (el) setTimeout(() => el.scrollIntoView(), 0); }
+      if (fromHash) { const id = location.hash.slice(1); if (id && id !== 'playbook' && window.pbReveal) window.pbReveal(id); }
     }
     if (!fromHash) history.replaceState(null, '', '#' + tab);
     setHeaderHeight();
@@ -182,7 +182,7 @@
       return `<tr class="${cls}"><td>${lab}</td><td>${n < 0 ? '−' : '+'}${Math.abs(pips).toFixed(1)}</td><td>${price}</td><td>${valid ? (n < 0 ? '−' : '+') + money(Math.abs(n) * exact) : '—'}</td></tr>`;
     };
     $('#oLevels').innerHTML = row('SL', 'sl', -1) + row('1R', 'tp', 1) + row('2R', 'tp', 2) + row('3R', 'tp', 3);
-    $('#calcSummary').textContent = calcOut.valid ? `${C.pair} · ${lots.toFixed(2)} lots · ${money(exact)} risk · ${sl} pip SL` : 'Set balance, risk & stop';
+    $('#calcSummary').textContent = calcOut.valid ? `Last size: ${C.pair} · ${lots.toFixed(2)} lots · ${money(exact)} risk · ${sl} pip SL` : '';
     renderChecklist();
   }
   function initCalc() {
@@ -295,7 +295,7 @@
     $('#dayLabel').textContent = new Intl.DateTimeFormat('en-GB', { timeZone: tz(), weekday: 'long', day: 'numeric', month: 'short' }).format(Date.now());
     renderChecklist();
   }
-  $('#cPlus').addEventListener('click', () => setCount(G.count + 1));
+  $('#cPlus').addEventListener('click', () => { ticks = {}; setCount(G.count + 1); });
   $('#cMinus').addEventListener('click', () => setCount(G.count - 1));
 
   /* ---------------- checklist ---------------- */
@@ -321,14 +321,12 @@
         ? `<li class="${a.ok ? 'done' : ''}"><label><input type="checkbox" data-id="${a.id}" ${a.ok ? 'checked' : ''}/> ${esc(a.text)}</label></li>`
         : `<li class="auto ${a.ok ? 'done' : 'fail'}"><label><input type="checkbox" disabled ${a.ok ? 'checked' : ''}/> ${esc(a.text)} <span class="src">auto · ${a.src}</span></label></li>`).join('');
     $('#ckCount').textContent = `${done} / ${total}`;
-    const btn = $('#takeBtn');
-    btn.classList.toggle('locked', limitHit());
-    if (limitHit()) { btn.disabled = true; btn.textContent = `⛔ Daily limit reached (${S.maxTrades} trades)`; }
-    else if (done < total) { btn.disabled = true; btn.textContent = `🔒 Take trade (${total - done} left)`; }
-    else { btn.disabled = false; btn.textContent = '✅ Take trade  (+1 to counter)'; }
+    const st = $('#ckStatus');
+    if (limitHit()) { st.className = 'ck-status stop'; st.textContent = `⛔ Daily limit reached — ${S.maxTrades} trades done`; }
+    else if (done === total) { st.className = 'ck-status ok'; st.textContent = '✅ All clear — valid setup. Press + on the counter after you enter.'; }
+    else { st.className = 'ck-status'; st.textContent = ''; }
   }
   $('#ckList').addEventListener('change', (e) => { const id = e.target.dataset.id; if (!id) return; ticks[id] = e.target.checked; renderChecklist(); });
-  $('#takeBtn').addEventListener('click', () => { if (limitHit()) return; ticks = {}; setCount(G.count + 1); });
 
   /* ---------------- quick links ---------------- */
   function renderLinks() {

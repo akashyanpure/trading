@@ -146,6 +146,86 @@
     return { up, lo };
   }
 
+  /* ---- extra oscillators ---- */
+  const win = (c, i, p) => c.slice(Math.max(0, i - p + 1), i + 1);
+  function willr(c, p = 14) {
+    return c.map((k, i) => { if (i < p - 1) return null; const s = win(c, i, p); const hh = Math.max(...s.map((x) => x.h)), ll = Math.min(...s.map((x) => x.l)); return ((hh - k.c) / (hh - ll || 1)) * -100; });
+  }
+  function cci(c, p = 20) {
+    const tp = c.map((k) => (k.h + k.l + k.c) / 3);
+    return tp.map((t, i) => { if (i < p - 1) return null; const s = tp.slice(i - p + 1, i + 1); const m = s.reduce((a, b) => a + b, 0) / p; const md = s.reduce((a, b) => a + Math.abs(b - m), 0) / p; return (t - m) / (0.015 * (md || 1e-9)); });
+  }
+  function mom(v, p = 10) { return v.map((x, i) => (i < p ? null : x - v[i - p])); }
+  function stochRsi(v, p = 14) {
+    const r = rsi(v, p);
+    const raw = r.map((x, i) => { if (x == null || i < 2 * p) return null; const s = r.slice(i - p + 1, i + 1); const mn = Math.min(...s), mx = Math.max(...s); return ((x - mn) / (mx - mn || 1)) * 100; });
+    const sm = (arr, n) => arr.map((x, i) => { const s = arr.slice(Math.max(0, i - n + 1), i + 1); return s.length < n || s.some((y) => y == null) ? null : s.reduce((a, b) => a + b, 0) / n; });
+    const k = sm(raw, 3);
+    return { k, d: sm(k, 3) };
+  }
+  function ultimate(c) {
+    const bp = [], tr = [];
+    c.forEach((k, i) => { const pc = i ? c[i - 1].c : k.o; bp.push(k.c - Math.min(k.l, pc)); tr.push(Math.max(k.h, pc) - Math.min(k.l, pc)); });
+    const avg = (i, p) => { let a = 0, b = 0; for (let j = i - p + 1; j <= i; j++) { a += bp[j]; b += tr[j]; } return a / (b || 1e-9); };
+    return c.map((_, i) => (i < 28 ? null : (100 * (4 * avg(i, 7) + 2 * avg(i, 14) + avg(i, 28))) / 7));
+  }
+  function demarker(c, p = 14) {
+    const mx = c.map((k, i) => (i && k.h > c[i - 1].h ? k.h - c[i - 1].h : 0));
+    const mn = c.map((k, i) => (i && k.l < c[i - 1].l ? c[i - 1].l - k.l : 0));
+    return c.map((_, i) => { if (i < p) return null; let a = 0, b = 0; for (let j = i - p + 1; j <= i; j++) { a += mx[j]; b += mn[j]; } return a / (a + b || 1e-9); });
+  }
+  function adx(c, p = 14) {
+    const n = c.length, pdi = new Array(n).fill(null), mdi = new Array(n).fill(null), ax = new Array(n).fill(null);
+    let tr = 0, pd = 0, md = 0, a = 0, dxs = [];
+    for (let i = 1; i < n; i++) {
+      const up = c[i].h - c[i - 1].h, dn = c[i - 1].l - c[i].l;
+      const pdm = up > dn && up > 0 ? up : 0, mdm = dn > up && dn > 0 ? dn : 0;
+      const t = Math.max(c[i].h - c[i].l, Math.abs(c[i].h - c[i - 1].c), Math.abs(c[i].l - c[i - 1].c));
+      if (i <= p) { tr += t; pd += pdm; md += mdm; if (i < p) continue; } else { tr = tr - tr / p + t; pd = pd - pd / p + pdm; md = md - md / p + mdm; }
+      pdi[i] = (100 * pd) / tr; mdi[i] = (100 * md) / tr;
+      const dx = (100 * Math.abs(pdi[i] - mdi[i])) / (pdi[i] + mdi[i] || 1e-9);
+      if (dxs.length < p) { dxs.push(dx); if (dxs.length === p) { a = dxs.reduce((x, y) => x + y, 0) / p; ax[i] = a; } }
+      else { a = (a * (p - 1) + dx) / p; ax[i] = a; }
+    }
+    return { adx: ax, pdi, mdi };
+  }
+  function psar(c, step = 0.02, max = 0.2) {
+    const out = new Array(c.length).fill(null);
+    if (c.length < 3) return out;
+    let up = c[1].c >= c[0].c, af = step, ep = up ? Math.max(c[0].h, c[1].h) : Math.min(c[0].l, c[1].l), sar = up ? Math.min(c[0].l, c[1].l) : Math.max(c[0].h, c[1].h);
+    for (let i = 2; i < c.length; i++) {
+      sar = sar + af * (ep - sar);
+      if (up) {
+        sar = Math.min(sar, c[i - 1].l, c[i - 2].l);
+        if (c[i].l < sar) { up = false; sar = ep; ep = c[i].l; af = step; }
+        else if (c[i].h > ep) { ep = c[i].h; af = Math.min(max, af + step); }
+      } else {
+        sar = Math.max(sar, c[i - 1].h, c[i - 2].h);
+        if (c[i].h > sar) { up = true; sar = ep; ep = c[i].h; af = step; }
+        else if (c[i].l < ep) { ep = c[i].l; af = Math.min(max, af + step); }
+      }
+      out[i] = { v: sar, up };
+    }
+    return out;
+  }
+  function supertrend(c, p = 10, mult = 3) {
+    const a = atr(c, p), n = c.length, up = new Array(n).fill(null), dn = new Array(n).fill(null);
+    let fu = null, fl = null, trend = 1;
+    for (let i = 0; i < n; i++) {
+      if (a[i] == null) continue;
+      const mid = (c[i].h + c[i].l) / 2, bu = mid + mult * a[i], bl = mid - mult * a[i];
+      fu = fu == null || bu < fu || c[i - 1].c > fu ? bu : fu;
+      fl = fl == null || bl > fl || c[i - 1].c < fl ? bl : fl;
+      if (trend === 1 && c[i].c < fl) trend = -1; else if (trend === -1 && c[i].c > fu) trend = 1;
+      if (trend === 1) up[i] = fl; else dn[i] = fu;
+    }
+    return { up, dn };
+  }
+  function keltner(c, p = 20, mult = 2) {
+    const mid = ema(closes(c), p), a = atr(c, 10);
+    return { mid, up: mid.map((x, i) => (x == null || a[i] == null ? null : x + mult * a[i])), lo: mid.map((x, i) => (x == null || a[i] == null ? null : x - mult * a[i])) };
+  }
+
   /* ---------- Renderer ---------- */
   const fmt = (v) => (BASE + v * PIP).toFixed(4);
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -175,6 +255,9 @@
     if (ind.bb) { bands = bb(v, 20, 2); }
     if (ind.ichimoku) { ichi = ichimoku(c); }
     const don = ind.donchian ? donchian(c, ind.donchian) : null;
+    const kel = ind.keltner ? keltner(c) : null;
+    const sar = ind.psar ? psar(c) : null;
+    const st = ind.supertrend ? supertrend(c) : null;
 
     // y-range
     let lo = Infinity, hi = -Infinity;
@@ -182,6 +265,9 @@
     const consider = (y) => { if (y != null && isFinite(y)) { lo = Math.min(lo, y); hi = Math.max(hi, y); } };
     ann.forEach((a) => { if (a.t === 'h') consider(a.y); if (a.t === 'trade') { consider(a.sl); consider(a.tp); } if (a.t === 'fib') { consider(a.y1); consider(a.y2); } if (a.t === 'z') { consider(a.y1); consider(a.y2); } });
     if (bands) bands.up.concat(bands.lo).forEach(consider);
+    if (kel) kel.up.concat(kel.lo).forEach(consider);
+    if (st) st.up.concat(st.dn).forEach(consider);
+    if (sar) sar.forEach((s) => s && consider(s.v));
     const span = hi - lo || 1;
     lo -= span * 0.08; hi += span * 0.1;
     const Y = (p) => padT + (1 - (p - lo) / (hi - lo)) * mainH;
@@ -250,6 +336,8 @@
     }
 
     if (don) { o.push(line(don.up, 'don'), line(don.lo, 'don')); }
+    if (kel) { o.push(line(kel.up, 'kel'), line(kel.lo, 'kel'), line(kel.mid, 'kelmid')); }
+    if (st) { o.push(line(st.up, 'st-up'), line(st.dn, 'st-dn')); }
 
     // candles
     const bw = Math.max(1.5, cw * 0.62);
@@ -261,6 +349,7 @@
     });
 
     overlays.forEach((ov) => o.push(line(ov.d, 'ov ' + ov.cls)));
+    if (sar) sar.forEach((s, i) => { if (s) o.push(`<circle class="psar ${s.up ? 'bull' : 'bear'}" cx="${X(i)}" cy="${Y(s.v)}" r="${Math.max(1.6, Math.min(3, cw * 0.18))}"/>`); });
 
     // annotations
     ann.forEach((a) => {
@@ -315,6 +404,9 @@
     overlays.forEach((ov) => leg.push(`<tspan class="lg ${ov.cls}">● ${ov.name}</tspan>`));
     if (bands) leg.push('<tspan class="lg bbl">● BB(20,2)</tspan>');
     if (don) leg.push('<tspan class="lg donl">● Donchian ' + ind.donchian + '</tspan>');
+    if (kel) leg.push('<tspan class="lg kell">● Keltner (EMA20 ± 2 ATR)</tspan>');
+    if (sar) leg.push('<tspan class="lg sarl">● Parabolic SAR</tspan>');
+    if (st) leg.push('<tspan class="lg stl">● Supertrend (10,3)</tspan>');
     if (ichi) leg.push('<tspan class="lg tenkanl">● Tenkan</tspan> <tspan class="lg kijunl">● Kijun</tspan> <tspan class="lg kumol">■ Cloud</tspan>');
     if (leg.length) o.push(`<text class="legend" x="${padL + 6}" y="${padT + 10}">${leg.join('  ')}</text>`);
 
@@ -327,6 +419,15 @@
       if (pane === 'rsi2') { plo = 0; phi = 100; series = [{ d: rsi(v, 2), cls: 'p1' }]; levels = [10, 90]; name = 'RSI 2'; }
       if (pane === 'stoch') { const s = stoch(c); plo = 0; phi = 100; series = [{ d: s.k, cls: 'p1' }, { d: s.d, cls: 'p2' }]; levels = [20, 80]; name = 'Stoch 14,3'; }
       if (pane === 'atr') { const a = atr(c); const vals = a.filter((x) => x != null); plo = Math.min(...vals) * 0.9; phi = Math.max(...vals) * 1.1; series = [{ d: a, cls: 'p1' }]; name = 'ATR 14'; }
+      let shade = null;
+      if (pane === 'willr') { plo = -100; phi = 0; series = [{ d: willr(c), cls: 'p1' }]; levels = [-80, -20]; name = 'Williams %R 14'; shade = [-80, -20]; }
+      if (pane === 'cci') { const d = cci(c); const mx = Math.max(150, ...d.filter((x) => x != null).map(Math.abs)) * 1.1; plo = -mx; phi = mx; series = [{ d, cls: 'p1' }]; levels = [-100, 0, 100]; name = 'CCI 20'; shade = [-100, 100]; }
+      if (pane === 'mom') { const d = mom(v, 10); const mx = Math.max(...d.filter((x) => x != null).map(Math.abs)) * 1.1 || 1; plo = -mx; phi = mx; series = [{ d, cls: 'p1' }]; levels = [0]; name = 'Momentum 10 (pips)'; }
+      if (pane === 'stochrsi') { const s = stochRsi(v); plo = 0; phi = 100; series = [{ d: s.k, cls: 'p1' }, { d: s.d, cls: 'p2' }]; levels = [20, 80]; name = 'Stoch RSI 14,3,3'; }
+      if (pane === 'uo') { plo = 0; phi = 100; series = [{ d: ultimate(c), cls: 'p1' }]; levels = [30, 70]; name = 'Ultimate Osc 7,14,28'; }
+      if (pane === 'dem') { plo = 0; phi = 1; series = [{ d: demarker(c), cls: 'p1' }]; levels = [0.3, 0.7]; name = 'DeMarker 14'; }
+      if (pane === 'adx') { const d = adx(c); plo = 0; phi = Math.max(50, ...d.adx.concat(d.pdi, d.mdi).filter((x) => x != null)) * 1.05; series = [{ d: d.adx, cls: 'p3' }, { d: d.pdi, cls: 'pb' }, { d: d.mdi, cls: 'pr' }]; levels = [25]; name = 'ADX 14  (white = ADX, green = +DI, red = −DI)'; }
+      if (['rsi', 'rsi2', 'stoch', 'stochrsi', 'uo', 'dem'].includes(pane)) shade = levels;
       let hist = null;
       if (pane === 'macd') {
         const md = macd(v); const all = md.line.concat(md.sig, md.hist).filter((x) => x != null);
@@ -335,9 +436,9 @@
       }
       const PY = (val) => top + (1 - (val - plo) / (phi - plo)) * paneH;
       o.push(`<rect class="panebg" x="${padL}" y="${top}" width="${W - padL - padR}" height="${paneH}"/>`);
-      if (pane === 'rsi' || pane === 'stoch' || pane === 'rsi2') {
-        o.push(`<rect class="ob" x="${padL}" y="${PY(100)}" width="${W - padL - padR}" height="${PY(levels[1]) - PY(100)}"/>`);
-        o.push(`<rect class="os" x="${padL}" y="${PY(levels[0])}" width="${W - padL - padR}" height="${PY(0) - PY(levels[0])}"/>`);
+      if (shade) {
+        o.push(`<rect class="ob" x="${padL}" y="${PY(phi)}" width="${W - padL - padR}" height="${PY(shade[1]) - PY(phi)}"/>`);
+        o.push(`<rect class="os" x="${padL}" y="${PY(shade[0])}" width="${W - padL - padR}" height="${PY(plo) - PY(shade[0])}"/>`);
       }
       levels.forEach((lv) => {
         o.push(`<line class="grid strong" x1="${padL}" x2="${W - padR}" y1="${PY(lv)}" y2="${PY(lv)}"/>`);
@@ -357,5 +458,5 @@
   }
 
   /* expose helpers so content files can compute values from series */
-  window.TChart = { render, Builder, ema, sma, rsi, macd, stoch, bb, atr, ichimoku, donchian };
+  window.TChart = { render, Builder, ema, sma, rsi, macd, stoch, bb, atr, ichimoku, donchian, willr, cci, mom, stochRsi, ultimate, demarker, adx, psar, supertrend, keltner };
 })();
