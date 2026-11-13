@@ -55,29 +55,37 @@
     <div class="sessions" id="sessions"></div>
 
     <main class="dash-grid">
-      <section class="panel today">
-        <div class="panel-h"><h2>Trades Today</h2><span class="small" id="dayLabel"></span></div>
-        <div class="counter" id="counter">
-          <button class="cnt-btn" id="cMinus" aria-label="Remove a trade">−</button>
-          <div class="cnt-val"><span id="cCount">0</span><span class="cnt-max">/ <span id="cMax">4</span></span></div>
-          <button class="cnt-btn" id="cPlus" aria-label="Add a trade">+</button>
+      <section class="panel mid checklist">
+        <div class="panel-h">
+          <h2>Pre-Trade Checklist</h2>
+          <span class="ck-count" id="ckCount"></span>
+          <button class="link-btn" id="ckReset" title="Untick everything">reset</button>
         </div>
-        <div class="cnt-dots" id="cDots"></div>
-        <div class="cnt-msg" id="cMsg"></div>
-
-        <div class="calc-summary small" id="calcSummary"></div>
-      </section>
-
-      <section class="panel mid">
-        <div class="panel-h"><h2>Pre-Trade Checklist</h2><span class="small" id="ckCount"></span></div>
-        <ul class="ck" id="ckList"></ul>
+        <div class="ck-progress"><span id="ckBar"></span></div>
+        <div class="ck-groups" id="ckList"></div>
         <div class="ck-status" id="ckStatus"></div>
       </section>
+
+      <div class="side-col">
+        <section class="panel today">
+          <div class="panel-h"><h2>Trades Today</h2><span class="small" id="dayLabel"></span></div>
+          <div class="counter" id="counter">
+            <button class="cnt-btn" id="cMinus" aria-label="Remove a trade">−</button>
+            <div class="cnt-val"><span id="cCount">0</span><span class="cnt-max">/ <span id="cMax">4</span></span></div>
+            <button class="cnt-btn" id="cPlus" aria-label="Add a trade">+</button>
+            <div class="cnt-side">
+              <div class="cnt-dots" id="cDots"></div>
+              <div class="cnt-msg" id="cMsg"></div>
+            </div>
+          </div>
+          <div class="calc-summary small" id="calcSummary"></div>
+        </section>
 
       <section class="panel cal">
         <div class="panel-h"><h2>High-Impact News</h2><a class="small" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener">ForexFactory ↗</a></div>
         <div class="tv-wrap" id="tvWrap"></div>
       </section>
+      </div>
     </main>
   </div>
 
@@ -231,9 +239,9 @@
           <label class="inline"><input id="sAnim" type="checkbox" /> Animated background</label>
         </fieldset>
         <fieldset class="wide">
-          <legend>Checklist rules (one per line)</legend>
-          <textarea id="sRules" rows="6"></textarea>
-          <p class="small">“No high-impact news” and “Risk within limit” are added automatically and checked live.</p>
+          <legend>Checklist rules (one per line · start a line with <code># </code> for a group heading)</legend>
+          <textarea id="sRules" rows="12"></textarea>
+          <p class="small">Live auto-checks are added automatically: no high-impact news, London/NY session open, risk within limit, daily trade limit.</p>
         </fieldset>
         <fieldset class="wide">
           <legend>Quick links (one per line: <code>Label | https://url</code>)</legend>

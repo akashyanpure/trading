@@ -10,14 +10,38 @@
   const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
   const DEFAULTS = {
-    v: 2, tz: '',
+    v: 3, tz: '',
     newsBefore: 15, newsAfter: 15, newsWarn: 60, newsPairOnly: false,
     maxTrades: 4, maxRisk: 1, minRR: 2, anim: true,
-    rules: ['HTF bias confirmed (H4 / D1)', 'Price at a key level / zone', 'Confluence: 2+ independent reasons', 'Entry trigger printed (candle closed)', 'R:R at or above 1:{minRR}', 'Calm — not revenge or FOMO'],
+    rules: [
+      '# 1 · Multi-timeframe analysis',
+      'D1 / H4 trend direction marked (HTF bias)',
+      'H1 structure agrees with the HTF bias',
+      'Entry TF (M15 / M5) confirms the same direction',
+      'Trading WITH the HTF trend (or at a major HTF level)',
+      '# 2 · Setup & location',
+      'Price at a key level / zone (S/R, supply-demand, OB)',
+      'Confluence: 2+ independent reasons',
+      'Entry trigger printed — candle CLOSED',
+      'Not chasing — entry near the level, not mid-move',
+      '# 3 · Risk & trade plan',
+      'Stop loss beyond structure (not a random number)',
+      'R:R at or above 1:{minRR}',
+      'Take-profit at a logical level (next S/R / liquidity)',
+      'Spread normal & no correlated trade already open',
+      '# 4 · Mindset',
+      'Calm — not revenge, FOMO or boredom',
+      'I accept the loss if the stop is hit',
+    ],
     links: ['Prop dashboard | ', 'ForexFactory | https://www.forexfactory.com/calendar', 'FXStreet News | https://www.fxstreet.com/news', 'Investing Calendar | https://www.investing.com/economic-calendar/', 'TradingView | https://www.tradingview.com/chart/'],
   };
   let S = load('fx-settings', DEFAULTS);
   if (!S.v || S.v < 2) { S.maxTrades = 4; S.v = 2; if (S.anim == null) S.anim = true; save('fx-settings', S); }
+  if (S.v < 3) {
+    const OLD = ['HTF bias confirmed (H4 / D1)', 'Price at a key level / zone', 'Confluence: 2+ independent reasons', 'Entry trigger printed (candle closed)', 'R:R at or above 1:{minRR}', 'Calm — not revenge or FOMO'];
+    if (JSON.stringify(S.rules) === JSON.stringify(OLD)) S.rules = DEFAULTS.rules.slice();
+    S.v = 3; save('fx-settings', S);
+  }
   let C = load('fx-calc', { ccy: 'USD', bal: 10000, mode: 'pct', risk: 1, pair: 'EURUSD', sl: 20, side: 'buy', entry: '' });
   let G = load('fx-guard', { day: '', count: 0 });
   if (Array.isArray(G.trades)) { G = { day: G.day, count: G.trades.length }; save('fx-guard', G); }
@@ -300,33 +324,107 @@
 
   /* ---------------- checklist ---------------- */
   let ticks = {};
+  function majorSessionOpen() {
+    const now = Date.now();
+    if (!ivCache.london || now - ivCache.at > 60000) renderSessions(now);
+    return stateOf(ivCache.london, now).open || stateOf(ivCache.ny, now).open;
+  }
   function autoRules() {
     const unknown = newsState === 'unknown';
     return [
-      { id: 'auto-news', text: unknown ? 'Checked news manually (feed unavailable)' : 'No high-impact news right now', ok: unknown ? !!ticks['auto-news'] : newsState !== 'red', manual: unknown, src: 'news' },
-      { id: 'auto-risk', text: `Risk within limit (≤ ${S.maxRisk}%)`, ok: calcOut.valid && calcOut.riskPct <= S.maxRisk + 1e-9, src: 'calculator' },
+      { id: 'auto-news', text: unknown ? 'News checked manually (feed unavailable)' : 'No high-impact news in the no-trade window', ok: unknown ? !!ticks['auto-news'] : newsState !== 'red', manual: unknown, src: 'news', fail: 'high-impact news is too close. Sit on your hands.' },
+      { id: 'auto-session', text: 'London or New York session is open', ok: majorSessionOpen(), src: 'clock', fail: 'London / New York session is closed (thin liquidity, wider spreads).' },
+      { id: 'auto-risk', text: `Position sized — risk ≤ ${S.maxRisk}% of balance`, ok: calcOut.valid && calcOut.riskPct <= S.maxRisk + 1e-9, src: 'calculator', fail: 'position size missing or risk above your limit — open Position size (P).' },
+      { id: 'auto-limit', text: `Under the daily limit (${G.count} of ${S.maxTrades} trades used)`, ok: !limitHit(), src: 'counter', fail: 'daily trade limit reached.' },
     ];
   }
-  let lastSig = '';
+  /* parse rules: lines starting with "#" are group headings */
+  function ruleGroups() {
+    const groups = []; let g = null;
+    S.rules.forEach((line, i) => {
+      if (/^#/.test(line)) { g = { title: line.replace(/^#+\s*/, ''), items: [] }; groups.push(g); return; }
+      if (!g) { g = { title: 'My rules', items: [] }; groups.push(g); }
+      g.items.push({ id: 'r' + i, text: line.replace('{minRR}', S.minRR) });
+    });
+    return groups.filter((x) => x.items.length);
+  }
+  /* Build the DOM only when the rule set changes; afterwards toggle classes in place so CSS transitions play. */
+  let lastSig = '', structSig = '', prevDone = -1, prevTotal = -1;
+  const TICK = '<span class="box"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+  function buildChecklist(groups, autos) {
+    const item = (r, auto) => `<li data-id="${r.id}" class="${auto ? 'auto' : ''}"><label><input type="checkbox" class="sr" data-id="${r.id}" ${auto ? 'disabled' : ''}/>${TICK}<span class="txt">${esc(r.text)}</span>${auto ? `<span class="src"><i></i>${r.src}</span>` : ''}</label></li>`;
+    const group = (gid, title, body, cls = '') => `<div class="ck-group ${cls}" data-g="${gid}"><div class="ck-gh"><span>${esc(title)}</span><span class="ck-gc"></span></div><ul class="ck">${body}</ul></div>`;
+    $('#ckList').innerHTML = groups.map((g, i) => group('g' + i, g.title, g.items.map((r) => item(r)).join(''))).join('') +
+      group('auto', 'Live checks — automatic', autos.map((a) => item(a, !a.manual)).join(''), 'autos');
+  }
+  function confetti() {
+    const host = document.querySelector('.checklist');
+    const colors = ['#22c55e', '#60a5fa', '#f59e0b', '#a78bfa', '#f472b6'];
+    for (let i = 0; i < 46; i++) {
+      const p = document.createElement('i');
+      p.className = 'confetti';
+      p.style.setProperty('--x', (Math.random() * 2 - 1) * 320 + 'px');
+      p.style.setProperty('--y', -(160 + Math.random() * 280) + 'px');
+      p.style.setProperty('--r', Math.random() * 720 - 360 + 'deg');
+      p.style.left = 50 + (Math.random() * 20 - 10) + '%';
+      p.style.background = colors[i % colors.length];
+      p.style.animationDelay = Math.random() * 0.12 + 's';
+      host.appendChild(p);
+      setTimeout(() => p.remove(), 1700);
+    }
+  }
   function renderChecklist() {
-    const manual = S.rules.map((r, i) => ({ id: 'r' + i, text: r.replace('{minRR}', S.minRR) }));
+    const groups = ruleGroups();
     const autos = autoRules();
-    const done = manual.filter((r) => ticks[r.id]).length + autos.filter((a) => a.ok).length;
+    const manual = groups.flatMap((g) => g.items);
+    const isOk = (r) => (r.ok != null && !r.manual ? r.ok : !!ticks[r.id]);
+    const done = manual.filter(isOk).length + autos.filter(isOk).length;
     const total = manual.length + autos.length;
-    const sig = JSON.stringify([manual, autos, ticks, G.count, S.maxTrades]);
+    const sig = JSON.stringify([groups, autos, ticks, G.count, S.maxTrades]);
     if (sig === lastSig) return;
     lastSig = sig;
-    $('#ckList').innerHTML = manual.map((r) => `<li class="${ticks[r.id] ? 'done' : ''}"><label><input type="checkbox" data-id="${r.id}" ${ticks[r.id] ? 'checked' : ''}/> ${esc(r.text)}</label></li>`).join('') +
-      autos.map((a) => a.manual
-        ? `<li class="${a.ok ? 'done' : ''}"><label><input type="checkbox" data-id="${a.id}" ${a.ok ? 'checked' : ''}/> ${esc(a.text)}</label></li>`
-        : `<li class="auto ${a.ok ? 'done' : 'fail'}"><label><input type="checkbox" disabled ${a.ok ? 'checked' : ''}/> ${esc(a.text)} <span class="src">auto · ${a.src}</span></label></li>`).join('');
-    $('#ckCount').textContent = `${done} / ${total}`;
+    const ss = JSON.stringify([groups, autos.map((a) => [a.id, a.text, !!a.manual])]);
+    if (ss !== structSig) { structSig = ss; buildChecklist(groups, autos); }
+
+    manual.concat(autos).forEach((r) => {
+      const li = document.querySelector(`#ckList li[data-id="${r.id}"]`);
+      if (!li) return;
+      const ok = isOk(r);
+      if (ok && !li.classList.contains('done') && prevDone >= 0) { li.classList.add('just'); setTimeout(() => li.classList.remove('just'), 500); }
+      li.classList.toggle('done', ok);
+      li.classList.toggle('fail', r.ok != null && !r.manual && !ok);
+      li.querySelector('input').checked = ok;
+    });
+    const setGroup = (gid, items) => {
+      const el = document.querySelector(`#ckList [data-g="${gid}"]`);
+      if (!el) return;
+      const n = items.filter(isOk).length, full = n === items.length;
+      el.querySelector('.ck-gc').textContent = (full ? '✓ ' : '') + n + '/' + items.length;
+      if (full && !el.classList.contains('complete') && prevDone >= 0) { el.classList.add('pop'); setTimeout(() => el.classList.remove('pop'), 700); }
+      el.classList.toggle('complete', full);
+    };
+    groups.forEach((g, i) => setGroup('g' + i, g.items));
+    setGroup('auto', autos);
+
+    const cnt = $('#ckCount');
+    cnt.textContent = `${done} / ${total}`;
+    if (done !== prevDone && prevDone >= 0) { cnt.classList.remove('bump'); void cnt.offsetWidth; cnt.classList.add('bump'); }
+    $('#ckBar').style.width = (total ? (done / total) * 100 : 0) + '%';
+    $('#ckBar').classList.toggle('full', done === total);
+    const clear = done === total && !limitHit();
+    document.querySelector('.checklist').classList.toggle('all-clear', clear);
+    if (clear && prevDone >= 0 && prevDone < total && prevTotal === total) confetti();
+    prevDone = done; prevTotal = total;
+
     const st = $('#ckStatus');
-    if (limitHit()) { st.className = 'ck-status stop'; st.textContent = `⛔ Daily limit reached — ${S.maxTrades} trades done`; }
-    else if (done === total) { st.className = 'ck-status ok'; st.textContent = '✅ All clear — valid setup. Press + on the counter after you enter.'; }
-    else { st.className = 'ck-status'; st.textContent = ''; }
+    const failedAuto = autos.find((a) => !a.ok && !a.manual);
+    if (limitHit()) { st.className = 'ck-status stop'; st.textContent = `⛔ Daily limit reached — ${S.maxTrades} trades done. No more trades today.`; }
+    else if (done === total) { st.className = 'ck-status ok'; st.textContent = '✅ ALL CLEAR — valid setup. Take it, then press + on the counter.'; }
+    else if (failedAuto) { st.className = 'ck-status warn'; st.textContent = '✋ Wait — ' + failedAuto.fail; }
+    else { st.className = 'ck-status'; st.textContent = `${total - done} rule${total - done === 1 ? '' : 's'} left — no trade until every box is ticked`; }
   }
   $('#ckList').addEventListener('change', (e) => { const id = e.target.dataset.id; if (!id) return; ticks[id] = e.target.checked; renderChecklist(); });
+  $('#ckReset').addEventListener('click', () => { ticks = {}; renderChecklist(); });
 
   /* ---------------- quick links ---------------- */
   function renderLinks() {

@@ -6,7 +6,7 @@
   const ctx = cv.getContext('2d');
   const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const STEP = 18, CW = 10, SPEED = 12; // px per candle, body width, px per second
+  const STEP = 26, CW = 15, SPEED = 22; // px per candle, body width, px per second
   let W = 0, H = 0, dpr = 1, enabled = true, raf = 0, last = 0, offset = 0;
   let col = {};
   let lo = null, hi = null;
@@ -44,7 +44,7 @@
     const cs = getComputedStyle(document.documentElement);
     const v = (n) => cs.getPropertyValue(n).trim();
     const light = document.documentElement.dataset.theme === 'light';
-    col = { bull: v('--bull'), bear: v('--bear'), accent: v('--accent'), gold: v('--gold'), grid: v('--grid'), muted: v('--muted'), a: light ? 0.20 : 0.30, line: light ? 0.42 : 0.60 };
+    col = { bull: v('--bull'), bear: v('--bear'), accent: v('--accent'), gold: v('--gold'), grid: v('--grid'), muted: v('--muted'), a: light ? 0.30 : 0.50, line: light ? 0.55 : 0.85 };
   }
 
   function resize() {
@@ -100,15 +100,23 @@
     for (let i = visFrom; i < n; i++) {
       const k = candles[i], x = X(i), up = k.c >= k.o;
       ctx.fillStyle = ctx.strokeStyle = up ? col.bull : col.bear;
-      ctx.beginPath(); ctx.moveTo(x, Y(k.h)); ctx.lineTo(x, Y(k.l)); ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, Y(k.h)); ctx.lineTo(x, Y(k.l)); ctx.lineWidth = 2; ctx.stroke();
       const y1 = Y(Math.max(k.o, k.c)), y2 = Y(Math.min(k.o, k.c));
       ctx.fillRect(x - CW / 2, y1, CW, Math.max(1.5, y2 - y1));
     }
 
-    // EMA 20 with glow
+    // EMA 20: soft area fill + glowing line
     const kf = 2 / 21; let e = candles[0].c;
-    ctx.globalAlpha = col.line; ctx.strokeStyle = col.accent; ctx.lineWidth = 2;
-    ctx.shadowColor = col.accent; ctx.shadowBlur = 10;
+    const pts = [];
+    { let e2 = candles[0].c; for (let i = 0; i < n; i++) { e2 = candles[i].c * kf + e2 * (1 - kf); if (i >= visFrom) pts.push([X(i), Y(e2)]); } }
+    if (pts.length > 1) {
+      const grad = ctx.createLinearGradient(0, top, 0, H);
+      grad.addColorStop(0, col.accent); grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = col.a * 0.45; ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.moveTo(pts[0][0], H); pts.forEach((p) => ctx.lineTo(p[0], p[1])); ctx.lineTo(pts[pts.length - 1][0], H); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = col.line; ctx.strokeStyle = col.accent; ctx.lineWidth = 2.6;
+    ctx.shadowColor = col.accent; ctx.shadowBlur = 16;
     ctx.beginPath();
     for (let i = 0; i < n; i++) { e = candles[i].c * kf + e * (1 - kf); if (i >= visFrom) { const x = X(i), y = Y(e); i === visFrom ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } }
     ctx.stroke();
